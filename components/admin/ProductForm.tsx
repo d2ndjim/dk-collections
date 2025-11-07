@@ -25,9 +25,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ProductWithDetails } from '@/lib/types/database'
-import { createProduct, updateProduct, getCategories } from '@/lib/actions/products'
+import { createProduct, updateProduct, getCategories, createProductImage } from '@/lib/actions/products'
+import { uploadProductImageClient } from '@/lib/utils/storage'
 import { slugify } from '@/lib/utils'
 import { toast } from 'sonner'
+import { ImageIcon, X } from 'lucide-react'
 
 const productSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -54,6 +56,11 @@ interface ProductFormProps {
 export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) {
   const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    product?.product_images?.[0]?.image_url || null
+  )
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
   const isEditing = !!product
 
   const form = useForm<ProductFormValues>({
@@ -87,6 +94,37 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
     form.setValue('slug', slugify(name))
   }
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file')
+        return
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size must be less than 5MB')
+        return
+      }
+
+      setSelectedImage(file)
+      
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null)
+    setImagePreview(null)
+  }
+
   const onSubmit = async (values: ProductFormValues) => {
     setIsLoading(true)
     try {
@@ -100,25 +138,80 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
         description: values.description || undefined,
       }
 
+      let productId: string
+
       if (isEditing && product) {
-        const { error } = await updateProduct(product.id, formData)
+        const { data, error } = await updateProduct(product.id, formData)
         if (error) {
           toast.error('Failed to update product', {
             description: error.message || 'Please try again',
           })
           return
         }
+        productId = product.id
         toast.success('Product updated successfully')
       } else {
-        const { error } = await createProduct(formData)
+        const { data, error } = await createProduct(formData)
         if (error) {
           toast.error('Failed to create product', {
             description: error.message || 'Please try again',
           })
           return
         }
+        if (!data) {
+          toast.error('Failed to create product', {
+            description: 'Product was created but no data was returned',
+          })
+          return
+        }
+        productId = data.id
         toast.success('Product created successfully')
       }
+
+      // Upload image if one was selected
+      if (selectedImage && productId) {
+        setIsUploadingImage(true)
+        
+        try {
+          // Upload directly from client to Supabase Storage
+          const { url, error: uploadError } = await uploadProductImageClient(
+            selectedImage,
+            values.slug
+          )
+          
+          if (uploadError || !url) {
+            toast.error('Failed to upload image', {
+              description: uploadError?.message || 'Please try uploading the image again',
+            })
+            setIsUploadingImage(false)
+            return
+          }
+
+          // Create product image record
+          const { error: imageError } = await createProductImage({
+            product_id: productId,
+            image_url: url,
+            alt_text: values.name,
+            is_primary: true,
+            display_order: 0,
+          })
+
+          if (imageError) {
+            toast.error('Failed to save image', {
+              description: 'Image was uploaded but could not be linked to product',
+            })
+          } else {
+            toast.success('Image uploaded successfully')
+          }
+        } catch (error) {
+          toast.error('Failed to upload image', {
+            description: 'An unexpected error occurred',
+          })
+        } finally {
+          setIsUploadingImage(false)
+        }
+      }
+
       await onSuccess()
     } catch (error) {
       toast.error('An error occurred', {
@@ -126,6 +219,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
       })
     } finally {
       setIsLoading(false)
+      setIsUploadingImage(false)
     }
   }
 
@@ -192,6 +286,54 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           )}
         />
 
+        {/* Image Upload Section */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            Product Image
+          </label>
+          <div className="flex flex-col gap-4">
+            {imagePreview ? (
+              <div className="relative w-full max-w-xs">
+                <img
+                  src={imagePreview}
+                  alt="Product preview"
+                  className="w-full h-64 object-cover rounded-md border"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="icon"
+                  className="absolute top-2 right-2"
+                  onClick={handleRemoveImage}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center w-full max-w-xs h-64 border-2 border-dashed rounded-md hover:border-primary transition-colors">
+                <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
+                  <ImageIcon className="h-12 w-12 text-muted-foreground mb-2" />
+                  <span className="text-sm text-muted-foreground">
+                    Click to upload image
+                  </span>
+                  <span className="text-xs text-muted-foreground mt-1">
+                    PNG, JPG up to 5MB
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Upload a product image. This will be displayed as the main product image.
+          </p>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
@@ -201,7 +343,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                 <FormLabel>Product Type</FormLabel>
                 <Select
                   onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  value={field.value}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -226,8 +368,11 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
               <FormItem>
                 <FormLabel>Category</FormLabel>
                 <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value || undefined}
+                  onValueChange={(value) => {
+                    // Convert "none" to null/undefined
+                    field.onChange(value === "none" ? null : value)
+                  }}
+                  value={field.value || "none"}
                 >
                   <FormControl>
                     <SelectTrigger>
@@ -235,7 +380,7 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
@@ -375,8 +520,14 @@ export function ProductForm({ product, onSuccess, onCancel }: ProductFormProps) 
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
-            {isLoading ? 'Saving...' : isEditing ? 'Update Product' : 'Create Product'}
+          <Button type="submit" disabled={isLoading || isUploadingImage}>
+            {isLoading || isUploadingImage
+              ? isUploadingImage
+                ? 'Uploading Image...'
+                : 'Saving...'
+              : isEditing
+                ? 'Update Product'
+                : 'Create Product'}
           </Button>
         </div>
       </form>

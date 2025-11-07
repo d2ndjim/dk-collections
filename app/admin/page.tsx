@@ -3,7 +3,7 @@ import { getProducts } from '@/lib/actions/products'
 import { ProductTableClient } from '@/components/admin/ProductTableClient'
 import { AddProductDialog } from '@/components/admin/AddProductDialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Package } from 'lucide-react'
 import { deleteProduct } from '@/lib/actions/products'
 import { revalidatePath } from 'next/cache'
@@ -86,7 +86,7 @@ async function ProductManagement() {
 
 function StatsCard() {
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-3 mb-8">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Products</CardTitle>
@@ -130,10 +130,10 @@ export default function AdminPage() {
             </div>
             <Skeleton className="h-10 w-32" />
           </div>
-          <StatsCard />
           <Skeleton className="h-96 w-full" />
         </div>
       }>
+        <StatsCard />
         <ProductManagement />
       </Suspense>
     </div>
