@@ -35,7 +35,7 @@ export async function getProducts(productType?: 'clothes' | 'shoes' | 'accessori
 export async function getProductsPaginated(
   productType?: 'clothes' | 'shoes' | 'accessories',
   page: number = 1,
-  pageSize: number = 20,
+  pageSize: number = 8,
 ) {
   const supabase = await createClient()
 

@@ -28,7 +28,7 @@ export function ProductListing() {
       const { data, error, totalPages: pages, totalCount: count } = await getProductsPaginated(
         productType,
         page,
-        20
+        8
       )
       
       if (error) {

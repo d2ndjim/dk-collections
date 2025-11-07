@@ -16,11 +16,10 @@ import {
   DialogContent,
   DialogDescription,
   DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  DialogTitle
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Pencil, Trash2, Eye } from 'lucide-react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { DeleteProductDialog } from './DeleteProductDialog'
 import { ProductForm } from './ProductForm'
