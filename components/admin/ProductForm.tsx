@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -46,13 +46,15 @@ import { ColorPicker } from "@/components/ui/color-picker";
 const variantSchema = z.object({
   color: z.string().min(1, "Color is required"),
   color_code: z.string().optional(),
-  sizes: z.array(
-    z.object({
-      size: z.string().min(1, "Size is required"),
-      stock: z.coerce.number().min(0, "Stock must be 0 or greater"),
-      sku: z.string().optional(),
-    })
-  ).min(1, "At least one size is required"),
+  sizes: z
+    .array(
+      z.object({
+        size: z.string().min(1, "Size is required"),
+        stock: z.coerce.number().min(0, "Stock must be 0 or greater"),
+        sku: z.string().optional(),
+      }),
+    )
+    .min(1, "At least one size is required"),
   images: z.array(z.instanceof(File)).optional(),
   existingImages: z.array(z.string()).optional(), // URLs of existing images
 });
@@ -91,45 +93,52 @@ export function ProductForm({
   const [isLoading, setIsLoading] = useState(false);
   const isEditing = !!product;
 
+  // Track object URLs for file previews to prevent memory leaks
+  const objectUrlMapRef = useRef<Map<File, string>>(new Map());
+
   // Initialize variants from product or empty
   const initialVariants = product?.product_variants?.length
-    ? product.product_variants.reduce((acc, variant) => {
-        const color = variant.color || "Default";
-        const existingVariant = acc.find((v) => v.color === color);
-        
-        if (existingVariant) {
-          existingVariant.sizes.push({
-            size: variant.size || "",
-            stock: variant.stock || 0,
-            sku: variant.sku || "",
-          });
-        } else {
-          const variantImages = product.product_images?.filter(
-            (img) => img.variant_id === variant.id
-          ) || [];
-          
-          acc.push({
-            color,
-            color_code: variant.color_code || "",
-            sizes: [
-              {
-                size: variant.size || "",
-                stock: variant.stock || 0,
-                sku: variant.sku || "",
-              },
-            ],
-            images: [],
-            existingImages: variantImages.map((img) => img.image_url),
-          });
-        }
-        return acc;
-      }, [] as Array<{
-        color: string;
-        color_code: string;
-        sizes: Array<{ size: string; stock: number; sku: string }>;
-        images: File[];
-        existingImages: string[];
-      }>)
+    ? product.product_variants.reduce(
+        (acc, variant) => {
+          const color = variant.color || "Default";
+          const existingVariant = acc.find((v) => v.color === color);
+
+          if (existingVariant) {
+            existingVariant.sizes.push({
+              size: variant.size || "",
+              stock: variant.stock || 0,
+              sku: variant.sku || "",
+            });
+          } else {
+            const variantImages =
+              product.product_images?.filter(
+                (img) => img.variant_id === variant.id,
+              ) || [];
+
+            acc.push({
+              color,
+              color_code: variant.color_code || "",
+              sizes: [
+                {
+                  size: variant.size || "",
+                  stock: variant.stock || 0,
+                  sku: variant.sku || "",
+                },
+              ],
+              images: [],
+              existingImages: variantImages.map((img) => img.image_url),
+            });
+          }
+          return acc;
+        },
+        [] as Array<{
+          color: string;
+          color_code: string;
+          sizes: Array<{ size: string; stock: number; sku: string }>;
+          images: File[];
+          existingImages: string[];
+        }>,
+      )
     : [
         {
           color: "",
@@ -173,6 +182,25 @@ export function ProductForm({
     fetchCategories();
   }, []);
 
+  // Helper function to get or create object URL for a file
+  const getObjectUrl = (file: File): string => {
+    const map = objectUrlMapRef.current;
+    if (!map.has(file)) {
+      const url = URL.createObjectURL(file);
+      map.set(file, url);
+    }
+    return map.get(file)!;
+  };
+
+  // Cleanup: Revoke all object URLs on unmount
+  useEffect(() => {
+    return () => {
+      const map = objectUrlMapRef.current;
+      map.forEach((url) => URL.revokeObjectURL(url));
+      map.clear();
+    };
+  }, []);
+
   const generateSlug = (name: string) => {
     form.setValue("slug", slugify(name));
   };
@@ -185,6 +213,20 @@ export function ProductForm({
       images: [],
       existingImages: [],
     });
+  };
+
+  const removeVariant = (variantIndex: number) => {
+    // Clean up object URLs for all images in this variant
+    const images = form.getValues(`variants.${variantIndex}.images`) || [];
+    const map = objectUrlMapRef.current;
+    images.forEach((file: File) => {
+      const url = map.get(file);
+      if (url) {
+        URL.revokeObjectURL(url);
+        map.delete(file);
+      }
+    });
+    remove(variantIndex);
   };
 
   const addSizeToVariant = (variantIndex: number) => {
@@ -200,35 +242,53 @@ export function ProductForm({
     if (sizes.length > 1) {
       form.setValue(
         `variants.${variantIndex}.sizes`,
-        sizes.filter((_, i) => i !== sizeIndex)
+        sizes.filter((_, i) => i !== sizeIndex),
       );
     }
   };
 
   const handleImageUpload = (
     variantIndex: number,
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const files = Array.from(e.target.files || []);
-    const currentImages = form.getValues(`variants.${variantIndex}.images`) || [];
-    form.setValue(`variants.${variantIndex}.images`, [...currentImages, ...files]);
+    const currentImages =
+      form.getValues(`variants.${variantIndex}.images`) || [];
+    form.setValue(`variants.${variantIndex}.images`, [
+      ...currentImages,
+      ...files,
+    ]);
   };
 
   const removeImage = (variantIndex: number, imageIndex: number) => {
     const images = form.getValues(`variants.${variantIndex}.images`) || [];
+    const fileToRemove = images[imageIndex];
+
+    // Revoke object URL if it exists
+    if (fileToRemove) {
+      const map = objectUrlMapRef.current;
+      const url = map.get(fileToRemove);
+      if (url) {
+        URL.revokeObjectURL(url);
+        map.delete(fileToRemove);
+      }
+    }
+
     form.setValue(
       `variants.${variantIndex}.images`,
-      images.filter((_, i) => i !== imageIndex)
+      images.filter((_, i) => i !== imageIndex),
     );
   };
 
   const removeExistingImage = async (
     variantIndex: number,
-    imageUrl: string
+    imageUrl: string,
   ) => {
     if (!product) return;
-    
-    const image = product.product_images?.find((img) => img.image_url === imageUrl);
+
+    const image = product.product_images?.find(
+      (img) => img.image_url === imageUrl,
+    );
     if (image) {
       const { error } = await deleteProductImage(image.id);
       if (error) {
@@ -237,10 +297,11 @@ export function ProductForm({
       }
     }
 
-    const existingImages = form.getValues(`variants.${variantIndex}.existingImages`) || [];
+    const existingImages =
+      form.getValues(`variants.${variantIndex}.existingImages`) || [];
     form.setValue(
       `variants.${variantIndex}.existingImages`,
-      existingImages.filter((url) => url !== imageUrl)
+      existingImages.filter((url) => url !== imageUrl),
     );
     toast.success("Image deleted");
   };
@@ -292,9 +353,13 @@ export function ProductForm({
       // Process variants and images
       // For editing, we'll create new variants (old ones can be manually deleted if needed)
       // In a production app, you'd want more sophisticated variant management
-      for (let variantIndex = 0; variantIndex < variants.length; variantIndex++) {
+      for (
+        let variantIndex = 0;
+        variantIndex < variants.length;
+        variantIndex++
+      ) {
         const variant = variants[variantIndex];
-        
+
         // Create variants for each size
         for (const size of variant.sizes) {
           const variantData = {
@@ -311,23 +376,35 @@ export function ProductForm({
           let variantId: string | undefined;
           if (isEditing && product) {
             const existingVariant = product.product_variants?.find(
-              (v) => v.color === variant.color && v.size === size.size
+              (v) => v.color === variant.color && v.size === size.size,
             );
             if (existingVariant) {
               variantId = existingVariant.id;
-              const { error } = await updateProductVariant(existingVariant.id, variantData);
+              const { error } = await updateProductVariant(
+                existingVariant.id,
+                variantData,
+              );
               if (error) {
-                console.error(`Failed to update variant: ${variant.color} - ${size.size}`, error);
+                console.error(
+                  `Failed to update variant: ${variant.color} - ${size.size}`,
+                  error,
+                );
                 // Continue to create new variant if update fails
               }
             }
           }
 
           if (!variantId) {
-            const { data: newVariant, error } = await createProductVariant(variantData);
+            const { data: newVariant, error } =
+              await createProductVariant(variantData);
             if (error) {
-              console.error(`Failed to create variant: ${variant.color} - ${size.size}`, error);
-              toast.error(`Failed to create variant: ${variant.color} - ${size.size}`);
+              console.error(
+                `Failed to create variant: ${variant.color} - ${size.size}`,
+                error,
+              );
+              toast.error(
+                `Failed to create variant: ${variant.color} - ${size.size}`,
+              );
               continue;
             }
             variantId = newVariant?.id;
@@ -340,10 +417,11 @@ export function ProductForm({
           for (let imgIndex = 0; imgIndex < imagesToUpload.length; imgIndex++) {
             const imageFile = imagesToUpload[imgIndex];
             try {
-              const { url, error: uploadError } = await uploadProductImageClient(
-                imageFile,
-                `${values.slug}-${variant.color}-${Date.now()}-${imgIndex}`
-              );
+              const { url, error: uploadError } =
+                await uploadProductImageClient(
+                  imageFile,
+                  `${values.slug}-${variant.color}-${Date.now()}-${imgIndex}`,
+                );
 
               if (uploadError || !url) {
                 toast.error(`Failed to upload image ${imgIndex + 1}`);
@@ -535,7 +613,7 @@ export function ProductForm({
                     value={field.value || ""}
                     onChange={(e) =>
                       field.onChange(
-                        e.target.value ? parseFloat(e.target.value) : null
+                        e.target.value ? parseFloat(e.target.value) : null,
                       )
                     }
                   />
@@ -610,7 +688,7 @@ export function ProductForm({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => remove(variantIndex)}
+                      onClick={() => removeVariant(variantIndex)}
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
@@ -625,7 +703,10 @@ export function ProductForm({
                       <FormItem>
                         <FormLabel>Color</FormLabel>
                         <FormControl>
-                          <Input {...field} placeholder="e.g., Black, White, Red" />
+                          <Input
+                            {...field}
+                            placeholder="e.g., Black, White, Red"
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -656,63 +737,76 @@ export function ProductForm({
                 {/* Sizes */}
                 <div className="space-y-2">
                   <FormLabel>Sizes & Stock</FormLabel>
-                  {form.watch(`variants.${variantIndex}.sizes`).map((_, sizeIndex) => (
-                    <div key={sizeIndex} className="flex gap-2 items-start">
-                      <FormField
-                        control={form.control}
-                        name={`variants.${variantIndex}.sizes.${sizeIndex}.size`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input {...field} placeholder="Size (e.g., S, M, L, 40, 41)" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
+                  {form
+                    .watch(`variants.${variantIndex}.sizes`)
+                    .map((_, sizeIndex) => (
+                      <div key={sizeIndex} className="flex gap-2 items-start">
+                        <FormField
+                          control={form.control}
+                          name={`variants.${variantIndex}.sizes.${sizeIndex}.size`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="Size (e.g., S, M, L, 40, 41)"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`variants.${variantIndex}.sizes.${sizeIndex}.stock`}
+                          render={({ field }) => (
+                            <FormItem className="w-32">
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  {...field}
+                                  placeholder="Stock"
+                                  onChange={(e) =>
+                                    field.onChange(
+                                      parseInt(e.target.value) || 0,
+                                    )
+                                  }
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`variants.${variantIndex}.sizes.${sizeIndex}.sku`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormControl>
+                                <Input
+                                  {...field}
+                                  placeholder="SKU (optional)"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        {form.watch(`variants.${variantIndex}.sizes`).length >
+                          1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() =>
+                              removeSizeFromVariant(variantIndex, sizeIndex)
+                            }
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`variants.${variantIndex}.sizes.${sizeIndex}.stock`}
-                        render={({ field }) => (
-                          <FormItem className="w-32">
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                placeholder="Stock"
-                                onChange={(e) =>
-                                  field.onChange(parseInt(e.target.value) || 0)
-                                }
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`variants.${variantIndex}.sizes.${sizeIndex}.sku`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input {...field} placeholder="SKU (optional)" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      {form.watch(`variants.${variantIndex}.sizes`).length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeSizeFromVariant(variantIndex, sizeIndex)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                      </div>
+                    ))}
                   <Button
                     type="button"
                     variant="outline"
@@ -727,40 +821,21 @@ export function ProductForm({
                 {/* Images */}
                 <div className="space-y-2">
                   <FormLabel>Images</FormLabel>
-                  
-                  {/* Existing Images */}
-                  {form.watch(`variants.${variantIndex}.existingImages`)?.map((imageUrl, imgIndex) => (
-                    <div key={imgIndex} className="relative inline-block mr-2 mb-2">
-                      <div className="relative w-24 h-24 border rounded-md overflow-hidden">
-                        <Image
-                          src={imageUrl}
-                          alt={`Variant ${variantIndex + 1} image ${imgIndex + 1}`}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        className="absolute -top-2 -right-2 h-6 w-6"
-                        onClick={() => removeExistingImage(variantIndex, imageUrl)}
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))}
 
-                  {/* New Images Preview */}
-                  {form.watch(`variants.${variantIndex}.images`)?.map((file, imgIndex) => {
-                    const previewUrl = URL.createObjectURL(file);
-                    return (
-                      <div key={imgIndex} className="relative inline-block mr-2 mb-2">
+                  {/* Existing Images */}
+                  {form
+                    .watch(`variants.${variantIndex}.existingImages`)
+                    ?.map((imageUrl, imgIndex) => (
+                      <div
+                        key={imgIndex}
+                        className="relative inline-block mr-2 mb-2"
+                      >
                         <div className="relative w-24 h-24 border rounded-md overflow-hidden">
-                          <img
-                            src={previewUrl}
-                            alt={`Preview ${imgIndex + 1}`}
-                            className="w-full h-full object-cover"
+                          <Image
+                            src={imageUrl}
+                            alt={`Variant ${variantIndex + 1} image ${imgIndex + 1}`}
+                            fill
+                            className="object-cover"
                           />
                         </div>
                         <Button
@@ -768,13 +843,44 @@ export function ProductForm({
                           variant="destructive"
                           size="icon"
                           className="absolute -top-2 -right-2 h-6 w-6"
-                          onClick={() => removeImage(variantIndex, imgIndex)}
+                          onClick={() =>
+                            removeExistingImage(variantIndex, imageUrl)
+                          }
                         >
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
-                    );
-                  })}
+                    ))}
+
+                  {/* New Images Preview */}
+                  {form
+                    .watch(`variants.${variantIndex}.images`)
+                    ?.map((file, imgIndex) => {
+                      const previewUrl = getObjectUrl(file);
+                      return (
+                        <div
+                          key={imgIndex}
+                          className="relative inline-block mr-2 mb-2"
+                        >
+                          <div className="relative w-24 h-24 border rounded-md overflow-hidden">
+                            <img
+                              src={previewUrl}
+                              alt={`Preview ${imgIndex + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6"
+                            onClick={() => removeImage(variantIndex, imgIndex)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      );
+                    })}
 
                   <div>
                     <label className="flex items-center justify-center w-full max-w-xs h-32 border-2 border-dashed rounded-md hover:border-primary transition-colors cursor-pointer">
@@ -851,7 +957,11 @@ export function ProductForm({
             Cancel
           </Button>
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Saving..." : isEditing ? "Update Product" : "Create Product"}
+            {isLoading
+              ? "Saving..."
+              : isEditing
+                ? "Update Product"
+                : "Create Product"}
           </Button>
         </div>
       </form>

@@ -1,5 +1,9 @@
 import { Suspense } from "react";
-import { getProducts, deleteProduct, deleteAllProducts } from "@/lib/actions/products";
+import {
+  getProducts,
+  deleteProduct,
+  deleteAllProducts,
+} from "@/lib/actions/products";
 import { ProductTableClient } from "@/components/admin/ProductTableClient";
 import { AddProductDialog } from "@/components/admin/AddProductDialog";
 import { DeleteAllProductsDialog } from "@/components/admin/DeleteAllProductsDialog";
@@ -40,8 +44,7 @@ async function ProductManagement() {
     return { success: true, deletedCount };
   }
 
-  const { data: allProductsData } = await getProducts();
-  const totalProductCount = allProductsData?.length || 0;
+  const totalProductCount = allProducts.data?.length || 0;
 
   return (
     <div className="space-y-6">
@@ -109,18 +112,21 @@ async function ProductManagement() {
 
 async function StatsCards() {
   const { data: products } = await getProducts();
-  
+
   const totalProducts = products?.length || 0;
-  const activeProducts = products?.filter(p => p.is_active).length || 0;
-  
+  const activeProducts = products?.filter((p) => p.is_active).length || 0;
+
   // Calculate low stock products (total stock across variants < 10)
-  const lowStockProducts = products?.filter(product => {
-    const totalStock = product.product_variants?.reduce(
-      (sum: number, variant: { stock?: number }) => sum + (variant.stock || 0),
-      0
-    ) || 0;
-    return totalStock > 0 && totalStock < 10;
-  }).length || 0;
+  const lowStockProducts =
+    products?.filter((product) => {
+      const totalStock =
+        product.product_variants?.reduce(
+          (sum: number, variant: { stock?: number }) =>
+            sum + (variant.stock || 0),
+          0,
+        ) || 0;
+      return totalStock > 0 && totalStock < 10;
+    }).length || 0;
 
   return (
     <div className="grid gap-4 md:grid-cols-3 mb-8">
@@ -131,7 +137,9 @@ async function StatsCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{totalProducts}</div>
-          <p className="text-xs text-muted-foreground">All products in inventory</p>
+          <p className="text-xs text-muted-foreground">
+            All products in inventory
+          </p>
         </CardContent>
       </Card>
       <Card>
@@ -141,7 +149,9 @@ async function StatsCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{activeProducts}</div>
-          <p className="text-xs text-muted-foreground">Available for purchase</p>
+          <p className="text-xs text-muted-foreground">
+            Available for purchase
+          </p>
         </CardContent>
       </Card>
       <Card>
@@ -151,7 +161,9 @@ async function StatsCards() {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{lowStockProducts}</div>
-          <p className="text-xs text-muted-foreground">Products with stock &lt; 10</p>
+          <p className="text-xs text-muted-foreground">
+            Products with stock &lt; 10
+          </p>
         </CardContent>
       </Card>
     </div>

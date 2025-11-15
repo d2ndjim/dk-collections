@@ -82,8 +82,13 @@ export function AdminSidebar() {
             <SidebarMenu>
               {menuItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href || 
-                  (item.href === "/admin" && pathname?.startsWith("/admin"));
+                // For Dashboard (/admin), only match exactly
+                // For other items, match exactly or when pathname starts with item.href + "/"
+                const isActive =
+                  item.href === "/admin"
+                    ? pathname === "/admin"
+                    : pathname === item.href ||
+                      pathname?.startsWith(item.href + "/");
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -132,4 +137,3 @@ export function AdminSidebar() {
     </Sidebar>
   );
 }
-
