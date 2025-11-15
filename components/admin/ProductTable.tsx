@@ -23,6 +23,7 @@ import { Pencil, Trash2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { DeleteProductDialog } from './DeleteProductDialog'
 import { ProductForm } from './ProductForm'
+import Image from 'next/image'
 
 interface ProductTableProps {
   products: ProductWithDetails[]
@@ -87,9 +88,11 @@ export function ProductTable({ products, onDelete, onUpdate }: ProductTableProps
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[100px]">Image</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Colors</TableHead>
               <TableHead>Price</TableHead>
               <TableHead>Stock</TableHead>
               <TableHead>Status</TableHead>
@@ -103,8 +106,36 @@ export function ProductTable({ products, onDelete, onUpdate }: ProductTableProps
                 0
               ) || 0
               
+              // Get unique colors from variants
+              const colors = Array.from(
+                new Set(
+                  product.product_variants
+                    ?.filter((v) => v.color)
+                    .map((v) => v.color) || []
+                )
+              )
+              
+              // Get primary image or first image
+              const primaryImage =
+                product.product_images?.find((img) => img.is_primary) ||
+                product.product_images?.[0]
+              const imageUrl =
+                primaryImage?.image_url ||
+                "https://via.placeholder.com/100x100?text=No+Image"
+              
               return (
                 <TableRow key={product.id}>
+                  <TableCell>
+                    <div className="relative w-16 h-16 rounded-md overflow-hidden border">
+                      <Image
+                        src={imageUrl}
+                        alt={product.name}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                      />
+                    </div>
+                  </TableCell>
                   <TableCell className="font-medium">{product.name}</TableCell>
                   <TableCell>
                     <Badge variant={getProductTypeBadgeVariant(product.product_type)}>
@@ -114,8 +145,40 @@ export function ProductTable({ products, onDelete, onUpdate }: ProductTableProps
                   <TableCell>
                     {product.categories?.name || 'Uncategorized'}
                   </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {colors.length > 0 ? (
+                        colors.map((color, idx) => {
+                          const variant = product.product_variants?.find(
+                            (v) => v.color === color
+                          )
+                          return (
+                            <Badge
+                              key={idx}
+                              variant="outline"
+                              className="text-xs"
+                              style={{
+                                backgroundColor: variant?.color_code
+                                  ? `${variant.color_code}20`
+                                  : undefined,
+                                borderColor: variant?.color_code || undefined,
+                              }}
+                            >
+                              {color}
+                            </Badge>
+                          )
+                        })
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No colors</span>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>{formatCurrency(product.price)}</TableCell>
-                  <TableCell>{totalStock}</TableCell>
+                  <TableCell>
+                    <span className={totalStock < 10 ? 'text-destructive font-semibold' : ''}>
+                      {totalStock}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={product.is_active ? 'default' : 'secondary'}>
                       {product.is_active ? 'Active' : 'Inactive'}
@@ -152,7 +215,7 @@ export function ProductTable({ products, onDelete, onUpdate }: ProductTableProps
       </div>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
             <DialogDescription>

@@ -47,6 +47,7 @@ export interface ProductVariant {
 export interface ProductImage {
   id: string;
   product_id: string;
+  variant_id: string | null;
   image_url: string;
   alt_text: string | null;
   is_primary: boolean;
