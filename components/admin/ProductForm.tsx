@@ -44,6 +44,7 @@ import { Card } from "@/components/ui/card";
 import { ColorPicker } from "@/components/ui/color-picker";
 
 const variantSchema = z.object({
+  id: z.string().optional(),
   color: z.string().min(1, "Color is required"),
   color_code: z.string().optional(),
   sizes: z
@@ -116,6 +117,7 @@ export function ProductForm({
               ) || [];
 
             acc.push({
+              id: variant.id,
               color,
               color_code: variant.color_code || "",
               sizes: [
@@ -132,6 +134,7 @@ export function ProductForm({
           return acc;
         },
         [] as Array<{
+          id?: string;
           color: string;
           color_code: string;
           sizes: Array<{ size: string; stock: number; sku: string }>;
@@ -331,6 +334,24 @@ export function ProductForm({
           return;
         }
         productId = product.id;
+
+        // Handle variant deletions
+        const submittedVariantIds = variants
+          .map((v) => v.id)
+          .filter(Boolean) as string[];
+        
+        const variantsToDelete = product.product_variants?.filter(
+          (v) => !submittedVariantIds.includes(v.id)
+        ) || [];
+
+        for (const variantToDelete of variantsToDelete) {
+          const { error: deleteError } = await deleteProductVariant(variantToDelete.id);
+          if (deleteError) {
+            console.error(`Failed to delete variant ${variantToDelete.id}`, deleteError);
+            toast.error("Failed to delete some variants");
+          }
+        }
+
         toast.success("Product updated successfully");
       } else {
         const { data, error } = await createProduct(formData);
