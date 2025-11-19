@@ -1,32 +1,31 @@
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
 
 export default async function AdminLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  const headersList = await headers();
+  const pathname = headersList.get("x-pathname") || "";
 
-  const isAuthenticated = Boolean(session);
+  // Skip auth check for login and auth callback pages
+  const isLoginPage = pathname.startsWith("/admin/login");
+  const isAuthCallback = pathname.startsWith("/admin/auth");
 
-  return (
-    <div className="min-h-screen bg-slate-100">
-      {!isAuthenticated && (
-        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3 text-sm text-amber-900">
-          <p className="font-medium">Admin authentication is not enabled yet.</p>
-          <p className="text-amber-800/80">
-            Once Supabase Auth is configured, update this layout to enforce access
-            control. For now, the banner is a reminder that the dashboard is
-            running in open mode.
-          </p>
-        </div>
-      )}
-      {children}
-    </div>
-  );
+  if (!isLoginPage && !isAuthCallback) {
+    const supabase = await createClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    // Redirect to login if not authenticated
+    if (!session) {
+      redirect("/admin/login");
+    }
+  }
+
+  return <>{children}</>;
 }
-

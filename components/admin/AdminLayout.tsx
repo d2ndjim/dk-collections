@@ -1,11 +1,10 @@
 "use client";
 
 import { AdminSidebar } from "./AdminSidebar";
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { UserInfo } from "./UserInfo";
+import { LogoutButton } from "./LogoutButton";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,21 +16,13 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
           <div className="flex flex-1 items-center justify-between">
             <h1 className="text-lg font-semibold">Admin Dashboard</h1>
             <div className="flex items-center gap-4">
-              {/* User profile placeholder - will be replaced with auth later */}
-              <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                  <span className="text-xs font-medium">A</span>
-                </div>
-                <span className="text-sm font-medium hidden sm:inline">Admin</span>
-              </div>
+              <UserInfo />
+              <LogoutButton />
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-auto p-6">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );
 }
-

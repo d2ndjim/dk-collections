@@ -99,6 +99,31 @@ export async function getProductById(id: string) {
   return { data, error: null };
 }
 
+export async function getProductBySlug(slug: string) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(
+      `
+      *,
+      categories(*),
+      product_variants(*),
+      product_images(*)
+    `,
+    )
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .single();
+
+  if (error) {
+    console.error("Error fetching product by slug:", error);
+    return { data: null, error };
+  }
+
+  return { data, error: null };
+}
+
 export async function getCategories() {
   const supabase = await createClient();
 
