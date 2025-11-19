@@ -411,7 +411,7 @@ export function ProductForm({
           color_code: v.color_code || undefined,
           size: v.size,
           stock: v.stock,
-          sku: v.sku || generateSKU(values.slug, v.color, v.size),
+          sku: (v.sku && v.sku.trim()) || generateSKU(values.slug, v.color, v.size),
           is_available: true,
         }));
 
@@ -422,7 +422,7 @@ export function ProductForm({
           color_code: v.color_code || undefined,
           size: v.size,
           stock: v.stock,
-          sku: v.sku || generateSKU(values.slug, v.color, v.size),
+          sku: (v.sku && v.sku.trim()) || generateSKU(values.slug, v.color, v.size),
           is_available: true,
         }));
 
@@ -472,7 +472,7 @@ export function ProductForm({
               color_code: variant.color_code || undefined,
               size: size.size,
               stock: size.stock,
-              sku: size.sku || generateSKU(values.slug, variant.color, size.size),
+              sku: (size.sku && size.sku.trim()) || generateSKU(values.slug, variant.color, size.size),
               is_available: true,
             });
           }
