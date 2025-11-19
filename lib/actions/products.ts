@@ -389,3 +389,195 @@ export async function updateProductVariant(
   revalidatePath("/admin");
   return { data, error: null };
 }
+
+// Batch operations for better performance
+
+export async function batchCreateVariants(
+  variants: Array<{
+    product_id: string;
+    size?: string;
+    color?: string;
+    color_code?: string;
+    stock: number;
+    sku?: string;
+    price_override?: number;
+    weight?: number;
+    is_available?: boolean;
+  }>
+) {
+  if (variants.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("product_variants")
+    .insert(variants)
+    .select();
+
+  if (error) {
+    console.error("Error batch creating variants:", error);
+    return { data: null, error };
+  }
+
+  revalidatePath("/admin");
+  return { data, error: null };
+}
+
+export async function batchUpdateVariants(
+  variants: Array<{
+    id: string;
+    product_id?: string;
+    size?: string;
+    color?: string;
+    color_code?: string;
+    stock?: number;
+    sku?: string;
+    price_override?: number;
+    weight?: number;
+    is_available?: boolean;
+  }>
+) {
+  if (variants.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const supabase = await createClient();
+
+  // Supabase doesn't support batch updates directly, so we use Promise.all
+  const updatePromises = variants.map((variant) => {
+    const { id, ...updateData } = variant;
+    return supabase
+      .from("product_variants")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single();
+  });
+
+  const results = await Promise.all(updatePromises);
+
+  // Check if any updates failed
+  const errors = results.filter((r) => r.error);
+  if (errors.length > 0) {
+    console.error("Error batch updating variants:", errors);
+    return { data: null, error: errors[0].error };
+  }
+
+  const data = results.map((r) => r.data).filter(Boolean);
+
+  revalidatePath("/admin");
+  return { data, error: null };
+}
+
+export async function batchDeleteVariants(variantIds: string[]) {
+  if (variantIds.length === 0) {
+    return { error: null };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("product_variants")
+    .delete()
+    .in("id", variantIds);
+
+  if (error) {
+    console.error("Error batch deleting variants:", error);
+    return { error };
+  }
+
+  revalidatePath("/admin");
+  return { error: null };
+}
+
+/**
+ * Sync product variants - handles create, update, and delete in one operation
+ * This provides a more atomic approach to variant management
+ */
+export async function syncProductVariants(
+  productId: string,
+  changes: {
+    toCreate: Array<{
+      product_id: string;
+      size?: string;
+      color?: string;
+      color_code?: string;
+      stock: number;
+      sku?: string;
+      price_override?: number;
+      weight?: number;
+      is_available?: boolean;
+    }>;
+    toUpdate: Array<{
+      id: string;
+      product_id?: string;
+      size?: string;
+      color?: string;
+      color_code?: string;
+      stock?: number;
+      sku?: string;
+      price_override?: number;
+      weight?: number;
+      is_available?: boolean;
+    }>;
+    toDelete: string[];
+  }
+) {
+  const results = {
+    created: [] as any[],
+    updated: [] as any[],
+    deleted: [] as string[],
+    errors: [] as any[],
+  };
+
+  // Execute all operations in parallel for better performance
+  const operations = [];
+
+  if (changes.toCreate.length > 0) {
+    operations.push(
+      batchCreateVariants(changes.toCreate).then((result) => {
+        if (result.error) {
+          results.errors.push({ operation: "create", error: result.error });
+        } else {
+          results.created = result.data || [];
+        }
+      })
+    );
+  }
+
+  if (changes.toUpdate.length > 0) {
+    operations.push(
+      batchUpdateVariants(changes.toUpdate).then((result) => {
+        if (result.error) {
+          results.errors.push({ operation: "update", error: result.error });
+        } else {
+          results.updated = result.data || [];
+        }
+      })
+    );
+  }
+
+  if (changes.toDelete.length > 0) {
+    operations.push(
+      batchDeleteVariants(changes.toDelete).then((result) => {
+        if (result.error) {
+          results.errors.push({ operation: "delete", error: result.error });
+        } else {
+          results.deleted = changes.toDelete;
+        }
+      })
+    );
+  }
+
+  await Promise.all(operations);
+
+  revalidatePath("/admin");
+
+  if (results.errors.length > 0) {
+    return { data: results, error: results.errors[0].error };
+  }
+
+  return { data: results, error: null };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -30,13 +30,20 @@ import {
   updateProduct,
   getCategories,
   createProductImage,
-  createProductVariant,
-  updateProductVariant,
-  deleteProductVariant,
   deleteProductImage,
+  syncProductVariants,
 } from "@/lib/actions/products";
 import { uploadProductImageClient } from "@/lib/utils/storage";
 import { slugify } from "@/lib/utils";
+import {
+  generateSKU,
+  hasDuplicateVariants,
+  getDuplicateVariants,
+  hasStockAvailable,
+  hasUniqueSKUs,
+  getDuplicateSKUs,
+  detectVariantChanges,
+} from "@/lib/utils/variant-utils";
 import { toast } from "sonner";
 import { ImageIcon, X, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
@@ -96,6 +103,9 @@ export function ProductForm({
 
   // Track object URLs for file previews to prevent memory leaks
   const objectUrlMapRef = useRef<Map<File, string>>(new Map());
+  
+  // Track original variants for change detection
+  const originalVariantsRef = useRef(product?.product_variants || []);
 
   // Initialize variants from product or empty
   const initialVariants = product?.product_variants?.length
@@ -311,7 +321,35 @@ export function ProductForm({
 
   const onSubmit = async (values: ProductFormValues) => {
     setIsLoading(true);
+    
     try {
+      // Validation: Check for duplicate color+size combinations
+      if (hasDuplicateVariants(values.variants)) {
+        const duplicates = getDuplicateVariants(values.variants);
+        toast.error("Duplicate variants detected", {
+          description: `Found duplicate combinations: ${duplicates.map(d => `${d.color} - ${d.size}`).join(", ")}`,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Validation: Check for duplicate SKUs
+      if (!hasUniqueSKUs(values.variants)) {
+        const duplicates = getDuplicateSKUs(values.variants);
+        toast.error("Duplicate SKUs detected", {
+          description: `SKUs must be unique: ${duplicates.join(", ")}`,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Warning: Check if any variant has stock
+      if (!hasStockAvailable(values.variants)) {
+        toast.warning("No stock available", {
+          description: "All variants have 0 stock. Product won't be purchasable.",
+        });
+      }
+
       // Remove variants from formData before sending to create/update product
       const { variants, ...productData } = values;
       const formData = {
@@ -331,146 +369,208 @@ export function ProductForm({
           toast.error("Failed to update product", {
             description: error.message || "Please try again",
           });
+          setIsLoading(false);
           return;
         }
         productId = product.id;
-
-        // Handle variant deletions
-        const submittedVariantIds = variants
-          .map((v) => v.id)
-          .filter(Boolean) as string[];
-        
-        const variantsToDelete = product.product_variants?.filter(
-          (v) => !submittedVariantIds.includes(v.id)
-        ) || [];
-
-        for (const variantToDelete of variantsToDelete) {
-          const { error: deleteError } = await deleteProductVariant(variantToDelete.id);
-          if (deleteError) {
-            console.error(`Failed to delete variant ${variantToDelete.id}`, deleteError);
-            toast.error("Failed to delete some variants");
-          }
-        }
-
-        toast.success("Product updated successfully");
       } else {
         const { data, error } = await createProduct(formData);
         if (error) {
           toast.error("Failed to create product", {
             description: error.message || "Please try again",
           });
+          setIsLoading(false);
           return;
         }
         if (!data) {
           toast.error("Failed to create product", {
             description: "Product was created but no data was returned",
           });
+          setIsLoading(false);
           return;
         }
         productId = data.id;
-        toast.success("Product created successfully");
       }
 
-      // Process variants and images
-      // For editing, we'll create new variants (old ones can be manually deleted if needed)
-      // In a production app, you'd want more sophisticated variant management
-      for (
-        let variantIndex = 0;
-        variantIndex < variants.length;
-        variantIndex++
-      ) {
-        const variant = variants[variantIndex];
+      // Store sync results for later use in image uploads
+      let createdVariants: any[] = [];
+      let updatedVariants: any[] = [];
 
-        // Create variants for each size
-        for (const size of variant.sizes) {
-          const variantData = {
-            product_id: productId,
-            color: variant.color,
-            color_code: variant.color_code || undefined,
-            size: size.size,
-            stock: size.stock,
-            sku: size.sku || undefined,
-            is_available: true,
-          };
+      // Process variants using batch operations and change detection
+      if (isEditing && product) {
+        // Use change detection for updates
+        const changes = detectVariantChanges(
+          originalVariantsRef.current,
+          values.variants
+        );
 
-          // Check if variant already exists (for editing)
-          let variantId: string | undefined;
-          if (isEditing && product) {
-            const existingVariant = product.product_variants?.find(
-              (v) => v.color === variant.color && v.size === size.size,
-            );
-            if (existingVariant) {
-              variantId = existingVariant.id;
-              const { error } = await updateProductVariant(
-                existingVariant.id,
-                variantData,
-              );
-              if (error) {
-                console.error(
-                  `Failed to update variant: ${variant.color} - ${size.size}`,
-                  error,
-                );
-                // Continue to create new variant if update fails
-              }
-            }
+        // Prepare variants for batch operations
+        const variantsToCreate = changes.toCreate.map((v) => ({
+          product_id: productId,
+          color: v.color,
+          color_code: v.color_code || undefined,
+          size: v.size,
+          stock: v.stock,
+          sku: v.sku || generateSKU(values.slug, v.color, v.size),
+          is_available: true,
+        }));
+
+        const variantsToUpdate = changes.toUpdate.map((v) => ({
+          id: v.id!,
+          product_id: productId,
+          color: v.color,
+          color_code: v.color_code || undefined,
+          size: v.size,
+          stock: v.stock,
+          sku: v.sku || generateSKU(values.slug, v.color, v.size),
+          is_available: true,
+        }));
+
+        const variantsToDelete = changes.toDelete.map((v) => v.id);
+
+        // Use syncProductVariants for atomic operation
+        const { data: syncResult, error: syncError } = await syncProductVariants(
+          productId,
+          {
+            toCreate: variantsToCreate,
+            toUpdate: variantsToUpdate,
+            toDelete: variantsToDelete,
           }
+        );
 
-          if (!variantId) {
-            const { data: newVariant, error } =
-              await createProductVariant(variantData);
-            if (error) {
-              console.error(
-                `Failed to create variant: ${variant.color} - ${size.size}`,
-                error,
-              );
-              toast.error(
-                `Failed to create variant: ${variant.color} - ${size.size}`,
-              );
+        if (syncError) {
+          toast.error("Failed to sync variants", {
+            description: syncError.message || "Some variants may not have been saved",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Store created and updated variants for image uploads
+        createdVariants = syncResult?.created || [];
+        updatedVariants = syncResult?.updated || [];
+
+        // Log sync results
+        console.log("Variant sync results:", {
+          created: createdVariants.length,
+          updated: updatedVariants.length,
+          deleted: syncResult?.deleted.length || 0,
+        });
+
+        toast.success("Product updated successfully", {
+          description: `${createdVariants.length} created, ${updatedVariants.length} updated, ${syncResult?.deleted.length || 0} deleted`,
+        });
+      } else {
+        // For new products, create all variants
+        const variantsToCreate = [];
+        
+        for (const variant of variants) {
+          for (const size of variant.sizes) {
+            variantsToCreate.push({
+              product_id: productId,
+              color: variant.color,
+              color_code: variant.color_code || undefined,
+              size: size.size,
+              stock: size.stock,
+              sku: size.sku || generateSKU(values.slug, variant.color, size.size),
+              is_available: true,
+            });
+          }
+        }
+
+        const { data: syncResult, error: syncError } = await syncProductVariants(
+          productId,
+          {
+            toCreate: variantsToCreate,
+            toUpdate: [],
+            toDelete: [],
+          }
+        );
+
+        if (syncError) {
+          toast.error("Failed to create variants", {
+            description: syncError.message || "Product created but variants failed",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Store created variants for image uploads
+        createdVariants = syncResult?.created || [];
+
+        toast.success("Product created successfully", {
+          description: `Created with ${createdVariants.length} variants`,
+        });
+      }
+
+      // Process images for variants
+      // Note: Image handling remains sequential as uploads can't be easily batched
+      for (let variantIndex = 0; variantIndex < variants.length; variantIndex++) {
+        const variant = variants[variantIndex];
+        const imagesToUpload = variant.images || [];
+
+        if (imagesToUpload.length === 0) continue;
+
+        // Find the variant ID
+        let variantId: string | undefined;
+        
+        if (variant.id) {
+          // Existing variant - use the ID from the form
+          variantId = variant.id;
+        } else {
+          // New variant - find it in the created variants
+          // Match by color and first size (since form groups by color)
+          const firstSize = variant.sizes[0]?.size;
+          const createdVariant = createdVariants.find(
+            (v) => v.color === variant.color && v.size === firstSize
+          );
+          variantId = createdVariant?.id;
+        }
+
+        if (!variantId) {
+          console.warn(`Could not find variant ID for ${variant.color}`, {
+            variantColor: variant.color,
+            firstSize: variant.sizes[0]?.size,
+            createdVariants,
+          });
+          continue;
+        }
+
+        for (let imgIndex = 0; imgIndex < imagesToUpload.length; imgIndex++) {
+          const imageFile = imagesToUpload[imgIndex];
+          try {
+            const { url, error: uploadError } = await uploadProductImageClient(
+              imageFile,
+              `${values.slug}-${variant.color}-${Date.now()}-${imgIndex}`,
+            );
+
+            if (uploadError || !url) {
+              toast.error(`Failed to upload image ${imgIndex + 1}`);
               continue;
             }
-            variantId = newVariant?.id;
-          }
 
-          if (!variantId) continue;
+            const { error: imageError } = await createProductImage({
+              product_id: productId,
+              variant_id: variantId,
+              image_url: url,
+              alt_text: `${values.name} - ${variant.color}`,
+              is_primary: imgIndex === 0 && variantIndex === 0,
+              display_order: imgIndex,
+            });
 
-          // Upload and create images for this variant
-          const imagesToUpload = variant.images || [];
-          for (let imgIndex = 0; imgIndex < imagesToUpload.length; imgIndex++) {
-            const imageFile = imagesToUpload[imgIndex];
-            try {
-              const { url, error: uploadError } =
-                await uploadProductImageClient(
-                  imageFile,
-                  `${values.slug}-${variant.color}-${Date.now()}-${imgIndex}`,
-                );
-
-              if (uploadError || !url) {
-                toast.error(`Failed to upload image ${imgIndex + 1}`);
-                continue;
-              }
-
-              const { error: imageError } = await createProductImage({
-                product_id: productId,
-                variant_id: variantId,
-                image_url: url,
-                alt_text: `${values.name} - ${variant.color}`,
-                is_primary: imgIndex === 0 && variantIndex === 0,
-                display_order: imgIndex,
-              });
-
-              if (imageError) {
-                toast.error(`Failed to save image ${imgIndex + 1}`);
-              }
-            } catch (error) {
-              console.error(`Failed to process image ${imgIndex + 1}`, error);
-              toast.error(`Failed to process image ${imgIndex + 1}`);
+            if (imageError) {
+              toast.error(`Failed to save image ${imgIndex + 1}`);
             }
+          } catch (error) {
+            console.error(`Failed to process image ${imgIndex + 1}`, error);
+            toast.error(`Failed to process image ${imgIndex + 1}`);
           }
         }
       }
 
       await onSuccess();
     } catch (error) {
+      console.error("Error in onSubmit:", error);
       toast.error("An error occurred", {
         description: "Something went wrong. Please try again.",
       });

@@ -4,10 +4,9 @@ import {
   deleteProduct,
   deleteAllProducts,
 } from "@/lib/actions/products";
-import { ProductTableClient } from "@/components/admin/ProductTableClient";
+import { ProductTabs } from "@/components/admin/ProductTabs";
 import { AddProductDialog } from "@/components/admin/AddProductDialog";
 import { DeleteAllProductsDialog } from "@/components/admin/DeleteAllProductsDialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, TrendingUp, AlertCircle } from "lucide-react";
 import { revalidatePath } from "next/cache";
@@ -66,46 +65,14 @@ async function ProductManagement() {
         </div>
       </div>
 
-      <Tabs defaultValue="all" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="all">All Products</TabsTrigger>
-          <TabsTrigger value="clothes">Clothes</TabsTrigger>
-          <TabsTrigger value="shoes">Shoes</TabsTrigger>
-          <TabsTrigger value="accessories">Accessories</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="all" className="space-y-4">
-          <ProductTableClient
-            products={allProducts.data || []}
-            onDelete={handleDelete}
-            onUpdate={handleRefresh}
-          />
-        </TabsContent>
-
-        <TabsContent value="clothes" className="space-y-4">
-          <ProductTableClient
-            products={clothesProducts.data || []}
-            onDelete={handleDelete}
-            onUpdate={handleRefresh}
-          />
-        </TabsContent>
-
-        <TabsContent value="shoes" className="space-y-4">
-          <ProductTableClient
-            products={shoesProducts.data || []}
-            onDelete={handleDelete}
-            onUpdate={handleRefresh}
-          />
-        </TabsContent>
-
-        <TabsContent value="accessories" className="space-y-4">
-          <ProductTableClient
-            products={accessoriesProducts.data || []}
-            onDelete={handleDelete}
-            onUpdate={handleRefresh}
-          />
-        </TabsContent>
-      </Tabs>
+      <ProductTabs
+        allProducts={allProducts.data || []}
+        clothesProducts={clothesProducts.data || []}
+        shoesProducts={shoesProducts.data || []}
+        accessoriesProducts={accessoriesProducts.data || []}
+        onDelete={handleDelete}
+        onUpdate={handleRefresh}
+      />
     </div>
   );
 }
