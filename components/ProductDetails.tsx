@@ -339,7 +339,8 @@ export function ProductDetails({ product }: ProductDetailsProps) {
                   const value = parseInt(e.target.value) || 1;
                   setQuantity(Math.max(1, value));
                 }}
-                className="w-16 h-10 text-center border-2 border-gray-300 rounded focus:outline-none focus:border-red-600"
+                className="w-16 h-10 text-center border-2 border-gray-300 rounded focus:outline-none focus:border-red-600 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [-moz-appearance:textfield]"
+                style={{ width: "4rem" }}
               />
               <button
                 onClick={() => handleQuantityChange(1)}

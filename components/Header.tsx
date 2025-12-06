@@ -35,7 +35,7 @@ export default function Header({
   return (
     <header className="relative w-full">
       {/* Navigation Bar */}
-      <div className="relative z-20 bg-white">
+      <div className="relative z-20 bg-white mb-4">
         <NavigationBar variant={variant} />
       </div>
 
