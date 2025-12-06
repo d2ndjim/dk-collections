@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import type { Order } from "@/lib/types/database";
+import type { Order, OrderWithItems } from "@/lib/types/database";
 
 export interface PaymentData {
   reference: string;
@@ -163,7 +163,11 @@ export async function updateOrderPaymentStatus(
   try {
     const supabase = await createClient();
 
-    const updateData: any = {
+    const updateData: {
+      payment_status: "paid" | "failed" | "refunded";
+      updated_at: string;
+      order_status?: "confirmed" | "processing" | "cancelled";
+    } = {
       payment_status: paymentStatus,
       updated_at: new Date().toISOString(),
     };
@@ -238,7 +242,7 @@ export async function getOrderByReference(
  */
 export async function getOrderWithItemsByReference(
   paymentReference: string,
-): Promise<{ success: boolean; order?: any; error?: string }> {
+): Promise<{ success: boolean; order?: OrderWithItems; error?: string }> {
   try {
     const supabase = await createClient();
 

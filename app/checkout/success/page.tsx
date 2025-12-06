@@ -10,28 +10,43 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
 import { getOrderWithItemsByReference } from "@/lib/actions/payments";
 import { formatCurrency } from "@/lib/utils";
+import type { OrderWithItems } from "@/lib/types/database";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
   const reference = searchParams.get("reference") || "N/A";
-  const [orderData, setOrderData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [orderData, setOrderData] = useState<OrderWithItems | null>(null);
+  const [isLoading, setIsLoading] = useState(() => reference !== "N/A");
 
   useEffect(() => {
+    let isMounted = true;
+
     if (reference && reference !== "N/A") {
       getOrderWithItemsByReference(reference)
         .then((result) => {
-          if (result.success && result.order) {
-            setOrderData(result.order);
+          if (isMounted) {
+            if (result.success && result.order) {
+              setOrderData(result.order);
+            }
+            setIsLoading(false);
           }
-          setIsLoading(false);
         })
         .catch(() => {
-          setIsLoading(false);
+          if (isMounted) {
+            setIsLoading(false);
+          }
         });
     } else {
-      setIsLoading(false);
+      // Use setTimeout to avoid synchronous setState in effect
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 0);
+      return () => clearTimeout(timer);
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [reference]);
 
   const order = orderData;
@@ -51,7 +66,7 @@ function SuccessContent() {
             Order Placed Successfully!
           </h1>
           <p className="text-gray-600">
-            Thank you for your order. We've received your payment and will
+            Thank you for your order. We&apos;ve received your payment and will
             process your order shortly.
           </p>
         </div>
@@ -127,7 +142,7 @@ function SuccessContent() {
                   Ordered Items
                 </span>
                 <div className="space-y-3">
-                  {orderItems.map((item: any) => (
+                  {orderItems.map((item) => (
                     <div key={item.id} className="flex gap-3 items-center">
                       {item.product_image_url && (
                         <div className="relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden shrink-0">

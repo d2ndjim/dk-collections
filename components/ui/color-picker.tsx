@@ -12,23 +12,46 @@ interface ColorPickerProps {
 }
 
 const PRESET_COLORS = [
-  "#000000", "#FFFFFF", "#FF0000", "#00FF00", "#0000FF",
-  "#FFFF00", "#FF00FF", "#00FFFF", "#FFA500", "#800080",
-  "#FFC0CB", "#A52A2A", "#808080", "#000080", "#008000",
+  "#000000",
+  "#FFFFFF",
+  "#FF0000",
+  "#00FF00",
+  "#0000FF",
+  "#FFFF00",
+  "#FF00FF",
+  "#00FFFF",
+  "#FFA500",
+  "#800080",
+  "#FFC0CB",
+  "#A52A2A",
+  "#808080",
+  "#000080",
+  "#008000",
 ];
 
-export function ColorPicker({ value = "#000000", onChange, className }: ColorPickerProps) {
+export function ColorPicker({
+  value = "#000000",
+  onChange,
+  className,
+}: ColorPickerProps) {
   const [open, setOpen] = useState(false);
-  const [hexValue, setHexValue] = useState(value);
+  const [hexValue, setHexValue] = useState(() => value || "#000000");
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setHexValue(value || "#000000");
+    // Use setTimeout to avoid synchronous setState in effect
+    const timer = setTimeout(() => {
+      setHexValue(value || "#000000");
+    }, 0);
+    return () => clearTimeout(timer);
   }, [value]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node)
+      ) {
         setOpen(false);
       }
     };
@@ -87,7 +110,9 @@ export function ColorPicker({ value = "#000000", onChange, className }: ColorPic
                   type="button"
                   className={cn(
                     "w-8 h-8 rounded border-2 cursor-pointer hover:scale-110 transition-transform",
-                    hexValue === color ? "border-primary ring-2 ring-primary ring-offset-1" : "border-gray-300"
+                    hexValue === color
+                      ? "border-primary ring-2 ring-primary ring-offset-1"
+                      : "border-gray-300",
                   )}
                   style={{ backgroundColor: color }}
                   onClick={() => {
@@ -113,4 +138,3 @@ export function ColorPicker({ value = "#000000", onChange, className }: ColorPic
     </div>
   );
 }
-

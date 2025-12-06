@@ -31,34 +31,21 @@ export function ProductTabs({
       </TabsList>
 
       <TabsContent value="all" className="space-y-4">
-        <ProductTableClient
-          products={allProducts}
-          onDelete={onDelete}
-          onUpdate={onUpdate}
-        />
+        <ProductTableClient products={allProducts} onDelete={onDelete} />
       </TabsContent>
 
       <TabsContent value="clothes" className="space-y-4">
-        <ProductTableClient
-          products={clothesProducts}
-          onDelete={onDelete}
-          onUpdate={onUpdate}
-        />
+        <ProductTableClient products={clothesProducts} onDelete={onDelete} />
       </TabsContent>
 
       <TabsContent value="shoes" className="space-y-4">
-        <ProductTableClient
-          products={shoesProducts}
-          onDelete={onDelete}
-          onUpdate={onUpdate}
-        />
+        <ProductTableClient products={shoesProducts} onDelete={onDelete} />
       </TabsContent>
 
       <TabsContent value="accessories" className="space-y-4">
         <ProductTableClient
           products={accessoriesProducts}
           onDelete={onDelete}
-          onUpdate={onUpdate}
         />
       </TabsContent>
     </Tabs>

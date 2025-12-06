@@ -245,7 +245,7 @@ export async function deleteAllProducts() {
     .from("product_variants")
     .delete()
     .neq("product_id", "00000000-0000-0000-0000-000000000000");
-  
+
   if (variantsError) {
     console.error("Error deleting variants:", variantsError);
   }
@@ -254,7 +254,7 @@ export async function deleteAllProducts() {
     .from("product_images")
     .delete()
     .neq("product_id", "00000000-0000-0000-0000-000000000000");
-  
+
   if (imagesError) {
     console.error("Error deleting images:", imagesError);
   }
@@ -370,7 +370,7 @@ export async function updateProductVariant(
     price_override?: number;
     weight?: number;
     is_available?: boolean;
-  }
+  },
 ) {
   const supabase = await createClient();
 
@@ -403,7 +403,7 @@ export async function batchCreateVariants(
     price_override?: number;
     weight?: number;
     is_available?: boolean;
-  }>
+  }>,
 ) {
   if (variants.length === 0) {
     return { data: [], error: null };
@@ -437,7 +437,7 @@ export async function batchUpdateVariants(
     price_override?: number;
     weight?: number;
     is_available?: boolean;
-  }>
+  }>,
 ) {
   if (variants.length === 0) {
     return { data: [], error: null };
@@ -523,13 +523,18 @@ export async function syncProductVariants(
       is_available?: boolean;
     }>;
     toDelete: string[];
-  }
+  },
 ) {
-  const results = {
-    created: [] as any[],
-    updated: [] as any[],
-    deleted: [] as string[],
-    errors: [] as any[],
+  const results: {
+    created: Array<{ id: string; image_url: string }>;
+    updated: Array<{ id: string; image_url: string }>;
+    deleted: string[];
+    errors: Array<{ operation: string; error: any }>;
+  } = {
+    created: [],
+    updated: [],
+    deleted: [],
+    errors: [],
   };
 
   // Execute all operations in parallel for better performance
@@ -543,7 +548,7 @@ export async function syncProductVariants(
         } else {
           results.created = result.data || [];
         }
-      })
+      }),
     );
   }
 
@@ -555,7 +560,7 @@ export async function syncProductVariants(
         } else {
           results.updated = result.data || [];
         }
-      })
+      }),
     );
   }
 
@@ -567,7 +572,7 @@ export async function syncProductVariants(
         } else {
           results.deleted = changes.toDelete;
         }
-      })
+      }),
     );
   }
 

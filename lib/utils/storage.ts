@@ -15,7 +15,7 @@ export async function uploadProductImageClient(
     const filePath = `products/${fileName}`
 
     // Upload to Supabase Storage directly from client
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('product-images')
       .upload(filePath, file, {
         contentType: file.type,

@@ -1,26 +1,28 @@
-'use client'
+"use client";
 
-import { useRouter } from 'next/navigation'
-import { ProductTable } from './ProductTable'
-import { ProductWithDetails } from '@/lib/types/database'
+import { useRouter } from "next/navigation";
+import { ProductTable } from "./ProductTable";
+import { ProductWithDetails } from "@/lib/types/database";
 
 interface ProductTableClientProps {
-  products: ProductWithDetails[]
-  onDelete: (id: string) => Promise<void>
-  onUpdate: () => void
+  products: ProductWithDetails[];
+  onDelete: (id: string) => Promise<void>;
 }
 
-export function ProductTableClient({ products, onDelete, onUpdate }: ProductTableClientProps) {
-  const router = useRouter()
+export function ProductTableClient({
+  products,
+  onDelete,
+}: ProductTableClientProps) {
+  const router = useRouter();
 
   const handleDelete = async (id: string) => {
-    await onDelete(id)
-    router.refresh()
-  }
+    await onDelete(id);
+    router.refresh();
+  };
 
   const handleUpdate = () => {
-    router.refresh()
-  }
+    router.refresh();
+  };
 
   return (
     <ProductTable
@@ -28,6 +30,5 @@ export function ProductTableClient({ products, onDelete, onUpdate }: ProductTabl
       onDelete={handleDelete}
       onUpdate={handleUpdate}
     />
-  )
+  );
 }
-

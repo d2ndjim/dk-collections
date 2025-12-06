@@ -6,7 +6,6 @@ import { useCart } from "@/contexts/CartContext";
 import { DeliveryDetailsForm } from "./DeliveryDetailsForm";
 import { OrderSummary } from "./OrderSummary";
 import { PaymentMethodSelector } from "./PaymentMethodSelector";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 export type PaymentMethod = "card"; // Paystack handles all payment methods

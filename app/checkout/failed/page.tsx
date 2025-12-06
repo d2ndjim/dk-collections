@@ -19,7 +19,7 @@ export default function CheckoutFailedPage() {
           </div>
           <h1 className="text-3xl md:text-4xl font-bold">Payment Failed</h1>
           <p className="text-gray-600">
-            We couldn't process your payment. Please try again or contact
+            We couldn&apos;t process your payment. Please try again or contact
             support if the problem persists.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">

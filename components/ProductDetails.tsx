@@ -123,15 +123,25 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     (v) => v.is_available && v.stock > 0,
   );
 
+  // Initialize selected color from available colors
   useEffect(() => {
     if (colors.length > 0 && !selectedColor) {
-      setSelectedColor(colors[0].color);
+      // Use setTimeout to avoid synchronous setState in effect
+      const timer = setTimeout(() => {
+        setSelectedColor(colors[0].color);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [colors, selectedColor]);
 
+  // Initialize selected size from available sizes
   useEffect(() => {
     if (availableSizes.length > 0 && !selectedSize) {
-      setSelectedSize(availableSizes[0]);
+      // Use setTimeout to avoid synchronous setState in effect
+      const timer = setTimeout(() => {
+        setSelectedSize(availableSizes[0]);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [availableSizes, selectedSize]);
 

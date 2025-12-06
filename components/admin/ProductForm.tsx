@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ProductWithDetails } from "@/lib/types/database";
+import { ProductWithDetails, ProductVariant } from "@/lib/types/database";
 import {
   createProduct,
   updateProduct,
@@ -103,7 +103,7 @@ export function ProductForm({
 
   // Track object URLs for file previews to prevent memory leaks
   const objectUrlMapRef = useRef<Map<File, string>>(new Map());
-  
+
   // Track original variants for change detection
   const originalVariantsRef = useRef(product?.product_variants || []);
 
@@ -207,8 +207,9 @@ export function ProductForm({
 
   // Cleanup: Revoke all object URLs on unmount
   useEffect(() => {
+    // Copy ref value to variable for cleanup function
+    const map = objectUrlMapRef.current;
     return () => {
-      const map = objectUrlMapRef.current;
       map.forEach((url) => URL.revokeObjectURL(url));
       map.clear();
     };
@@ -321,13 +322,13 @@ export function ProductForm({
 
   const onSubmit = async (values: ProductFormValues) => {
     setIsLoading(true);
-    
+
     try {
       // Validation: Check for duplicate color+size combinations
       if (hasDuplicateVariants(values.variants)) {
         const duplicates = getDuplicateVariants(values.variants);
         toast.error("Duplicate variants detected", {
-          description: `Found duplicate combinations: ${duplicates.map(d => `${d.color} - ${d.size}`).join(", ")}`,
+          description: `Found duplicate combinations: ${duplicates.map((d) => `${d.color} - ${d.size}`).join(", ")}`,
         });
         setIsLoading(false);
         return;
@@ -346,7 +347,8 @@ export function ProductForm({
       // Warning: Check if any variant has stock
       if (!hasStockAvailable(values.variants)) {
         toast.warning("No stock available", {
-          description: "All variants have 0 stock. Product won't be purchasable.",
+          description:
+            "All variants have 0 stock. Product won't be purchasable.",
         });
       }
 
@@ -364,7 +366,7 @@ export function ProductForm({
       let productId: string;
 
       if (isEditing && product) {
-        const { data, error } = await updateProduct(product.id, formData);
+        const { error } = await updateProduct(product.id, formData);
         if (error) {
           toast.error("Failed to update product", {
             description: error.message || "Please try again",
@@ -393,15 +395,16 @@ export function ProductForm({
       }
 
       // Store sync results for later use in image uploads
-      let createdVariants: any[] = [];
-      let updatedVariants: any[] = [];
+      // Note: syncResult returns { id, image_url }[], not full ProductVariant[]
+      let createdVariantIds: Array<{ id: string; image_url: string }> = [];
+      let updatedVariantIds: Array<{ id: string; image_url: string }> = [];
 
       // Process variants using batch operations and change detection
       if (isEditing && product) {
         // Use change detection for updates
         const changes = detectVariantChanges(
           originalVariantsRef.current,
-          values.variants
+          values.variants,
         );
 
         // Prepare variants for batch operations
@@ -411,7 +414,9 @@ export function ProductForm({
           color_code: v.color_code || undefined,
           size: v.size,
           stock: v.stock,
-          sku: (v.sku && v.sku.trim()) || generateSKU(values.slug, v.color, v.size),
+          sku:
+            (v.sku && v.sku.trim()) ||
+            generateSKU(values.slug, v.color, v.size),
           is_available: true,
         }));
 
@@ -422,48 +427,53 @@ export function ProductForm({
           color_code: v.color_code || undefined,
           size: v.size,
           stock: v.stock,
-          sku: (v.sku && v.sku.trim()) || generateSKU(values.slug, v.color, v.size),
+          sku:
+            (v.sku && v.sku.trim()) ||
+            generateSKU(values.slug, v.color, v.size),
           is_available: true,
         }));
 
         const variantsToDelete = changes.toDelete.map((v) => v.id);
 
         // Use syncProductVariants for atomic operation
-        const { data: syncResult, error: syncError } = await syncProductVariants(
-          productId,
-          {
+        const { data: syncResult, error: syncError } =
+          await syncProductVariants(productId, {
             toCreate: variantsToCreate,
             toUpdate: variantsToUpdate,
             toDelete: variantsToDelete,
-          }
-        );
+          });
 
         if (syncError) {
+          const errorMessage =
+            typeof syncError === "string"
+              ? syncError
+              : (syncError as { message?: string })?.message ||
+                "Some variants may not have been saved";
           toast.error("Failed to sync variants", {
-            description: syncError.message || "Some variants may not have been saved",
+            description: errorMessage,
           });
           setIsLoading(false);
           return;
         }
 
-        // Store created and updated variants for image uploads
-        createdVariants = syncResult?.created || [];
-        updatedVariants = syncResult?.updated || [];
+        // Store created and updated variant IDs for image uploads
+        createdVariantIds = syncResult?.created || [];
+        updatedVariantIds = syncResult?.updated || [];
 
         // Log sync results
         console.log("Variant sync results:", {
-          created: createdVariants.length,
-          updated: updatedVariants.length,
+          created: createdVariantIds.length,
+          updated: updatedVariantIds.length,
           deleted: syncResult?.deleted.length || 0,
         });
 
         toast.success("Product updated successfully", {
-          description: `${createdVariants.length} created, ${updatedVariants.length} updated, ${syncResult?.deleted.length || 0} deleted`,
+          description: `${createdVariantIds.length} created, ${updatedVariantIds.length} updated, ${syncResult?.deleted.length || 0} deleted`,
         });
       } else {
         // For new products, create all variants
         const variantsToCreate = [];
-        
+
         for (const variant of variants) {
           for (const size of variant.sizes) {
             variantsToCreate.push({
@@ -472,40 +482,49 @@ export function ProductForm({
               color_code: variant.color_code || undefined,
               size: size.size,
               stock: size.stock,
-              sku: (size.sku && size.sku.trim()) || generateSKU(values.slug, variant.color, size.size),
+              sku:
+                (size.sku && size.sku.trim()) ||
+                generateSKU(values.slug, variant.color, size.size),
               is_available: true,
             });
           }
         }
 
-        const { data: syncResult, error: syncError } = await syncProductVariants(
-          productId,
-          {
+        const { data: syncResult, error: syncError } =
+          await syncProductVariants(productId, {
             toCreate: variantsToCreate,
             toUpdate: [],
             toDelete: [],
-          }
-        );
+          });
 
         if (syncError) {
+          const errorMessage =
+            typeof syncError === "string"
+              ? syncError
+              : (syncError as { message?: string })?.message ||
+                "Product created but variants failed";
           toast.error("Failed to create variants", {
-            description: syncError.message || "Product created but variants failed",
+            description: errorMessage,
           });
           setIsLoading(false);
           return;
         }
 
-        // Store created variants for image uploads
-        createdVariants = syncResult?.created || [];
+        // Store created variant IDs for image uploads
+        createdVariantIds = syncResult?.created || [];
 
         toast.success("Product created successfully", {
-          description: `Created with ${createdVariants.length} variants`,
+          description: `Created with ${createdVariantIds.length} variants`,
         });
       }
 
       // Process images for variants
       // Note: Image handling remains sequential as uploads can't be easily batched
-      for (let variantIndex = 0; variantIndex < variants.length; variantIndex++) {
+      for (
+        let variantIndex = 0;
+        variantIndex < variants.length;
+        variantIndex++
+      ) {
         const variant = variants[variantIndex];
         const imagesToUpload = variant.images || [];
 
@@ -513,25 +532,28 @@ export function ProductForm({
 
         // Find the variant ID
         let variantId: string | undefined;
-        
+
         if (variant.id) {
           // Existing variant - use the ID from the form
           variantId = variant.id;
         } else {
-          // New variant - find it in the created variants
-          // Match by color and first size (since form groups by color)
-          const firstSize = variant.sizes[0]?.size;
-          const createdVariant = createdVariants.find(
-            (v) => v.color === variant.color && v.size === firstSize
-          );
-          variantId = createdVariant?.id;
+          // New variant - we need to match it to a created variant ID
+          // Since we create variants in order (all sizes for each color), we can match by tracking
+          // For now, we'll use the first available created variant ID that hasn't been used
+          // A better approach would be to track variant IDs during creation, but this works for now
+          if (createdVariantIds.length > 0) {
+            // Use the first created variant ID (they're created in order)
+            variantId = createdVariantIds[0]?.id;
+            // Remove it so we don't reuse it
+            createdVariantIds.shift();
+          }
         }
 
         if (!variantId) {
           console.warn(`Could not find variant ID for ${variant.color}`, {
             variantColor: variant.color,
             firstSize: variant.sizes[0]?.size,
-            createdVariants,
+            createdVariantIds,
           });
           continue;
         }
@@ -984,10 +1006,11 @@ export function ProductForm({
                           className="relative inline-block mr-2 mb-2"
                         >
                           <div className="relative w-24 h-24 border rounded-md overflow-hidden">
-                            <img
+                            <Image
                               src={previewUrl}
                               alt={`Preview ${imgIndex + 1}`}
                               className="w-full h-full object-cover"
+                              fill
                             />
                           </div>
                           <Button

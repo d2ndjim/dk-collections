@@ -1,12 +1,20 @@
 // Using Paystack Inline JS approach for React 19 compatibility
 
+export interface PaystackResponse {
+  status: string;
+  reference: string;
+  trans?: string;
+  transaction?: string;
+  message?: string;
+}
+
 export interface PaystackConfig {
   key: string;
   email: string;
   amount: number; // Amount in kobo (multiply by 100)
   reference: string;
-  metadata?: Record<string, any>;
-  callback?: (response: any) => void;
+  metadata?: Record<string, unknown>;
+  callback?: (response: PaystackResponse) => void;
   onClose?: () => void;
 }
 

@@ -12,7 +12,8 @@ import { ProductWithDetails } from "@/lib/types/database";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
-import { Package, Tag, DollarSign } from "lucide-react";
+import { Package, Tag } from "lucide-react";
+import Image from "next/image";
 
 interface ProductDetailDialogProps {
   product: ProductWithDetails | null;
@@ -32,10 +33,9 @@ export function ProductDetailDialog({
   // Get unique colors from variants
   const uniqueColors = Array.from(
     new Set(
-      product.product_variants
-        ?.filter((v) => v.color)
-        .map((v) => v.color) || []
-    )
+      product.product_variants?.filter((v) => v.color).map((v) => v.color) ||
+        [],
+    ),
   ).map((color) => {
     const variant = product.product_variants?.find((v) => v.color === color);
     return {
@@ -49,24 +49,32 @@ export function ProductDetailDialog({
     setSelectedColor(uniqueColors[0].color);
   }
 
-  // Get images for selected color
+  // Get variants for selected color
+  const selectedColorVariants =
+    product.product_variants?.filter((v) => v.color === selectedColor) || [];
+  const selectedColorVariantIds = new Set(
+    selectedColorVariants.map((v) => v.id),
+  );
+
+  // Get images linked to variants with the selected color
   const selectedColorImages =
     product.product_images?.filter(
-      (img) => img.color === selectedColor || !img.color
+      (img) => img.variant_id && selectedColorVariantIds.has(img.variant_id),
     ) || [];
+
+  // If no variant-specific images, show all images
+  if (selectedColorImages.length === 0) {
+    selectedColorImages.push(...(product.product_images || []));
+  }
 
   // Get primary image or first image
   const displayImage =
     selectedColorImages.find((img) => img.is_primary) || selectedColorImages[0];
 
-  // Get variants for selected color
-  const selectedColorVariants =
-    product.product_variants?.filter((v) => v.color === selectedColor) || [];
-
   // Calculate total stock for selected color
   const colorStock = selectedColorVariants.reduce(
     (sum, v) => sum + (v.stock || 0),
-    0
+    0,
   );
 
   return (
@@ -75,7 +83,8 @@ export function ProductDetailDialog({
         <DialogHeader>
           <DialogTitle className="text-2xl">{product.name}</DialogTitle>
           <DialogDescription>
-            {product.categories?.name || "Uncategorized"} • {product.product_type}
+            {product.categories?.name || "Uncategorized"} •{" "}
+            {product.product_type}
           </DialogDescription>
         </DialogHeader>
 
@@ -84,10 +93,11 @@ export function ProductDetailDialog({
           <div className="space-y-4">
             {displayImage ? (
               <div className="aspect-square rounded-lg border overflow-hidden bg-muted">
-                <img
+                <Image
                   src={displayImage.image_url}
                   alt={displayImage.alt_text || product.name}
                   className="w-full h-full object-cover"
+                  fill
                 />
               </div>
             ) : (
@@ -103,15 +113,14 @@ export function ProductDetailDialog({
                   <div
                     key={img.id || idx}
                     className={`aspect-square rounded-md border overflow-hidden cursor-pointer ${
-                      displayImage?.id === img.id
-                        ? "ring-2 ring-primary"
-                        : ""
+                      displayImage?.id === img.id ? "ring-2 ring-primary" : ""
                     }`}
                   >
-                    <img
+                    <Image
                       src={img.image_url}
                       alt={img.alt_text || ""}
                       className="w-full h-full object-cover"
+                      fill
                     />
                   </div>
                 ))}
@@ -140,9 +149,7 @@ export function ProductDetailDialog({
               <Badge variant={product.is_active ? "default" : "secondary"}>
                 {product.is_active ? "Active" : "Inactive"}
               </Badge>
-              {product.is_featured && (
-                <Badge variant="outline">Featured</Badge>
-              )}
+              {product.is_featured && <Badge variant="outline">Featured</Badge>}
             </div>
 
             <Separator />
@@ -245,11 +252,13 @@ export function ProductDetailDialog({
             <Separator />
             <div className="p-4 bg-muted rounded-lg">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Total Stock (All Variants)</span>
+                <span className="text-sm font-medium">
+                  Total Stock (All Variants)
+                </span>
                 <span className="text-2xl font-bold">
                   {product.product_variants?.reduce(
                     (sum, v) => sum + (v.stock || 0),
-                    0
+                    0,
                   ) || 0}
                 </span>
               </div>
@@ -260,4 +269,3 @@ export function ProductDetailDialog({
     </Dialog>
   );
 }
-

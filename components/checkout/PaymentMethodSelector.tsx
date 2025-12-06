@@ -28,25 +28,37 @@ export function PaymentMethodSelector({
 
   // Load Paystack script on mount
   useEffect(() => {
-    setIsLoadingScript(true);
-    loadPaystackScript()
-      .then(() => {
+    let isMounted = true;
+
+    const loadScript = async () => {
+      try {
+        await loadPaystackScript();
         // Wait a bit to ensure PaystackPop is fully initialized
         setTimeout(() => {
-          if (window.PaystackPop) {
-            setIsLoadingScript(false);
-          } else {
-            console.error("PaystackPop not available after script load");
-            toast.error("Failed to load payment system. Please try again.");
-            setIsLoadingScript(false);
+          if (isMounted) {
+            if (window.PaystackPop) {
+              setIsLoadingScript(false);
+            } else {
+              console.error("PaystackPop not available after script load");
+              toast.error("Failed to load payment system. Please try again.");
+              setIsLoadingScript(false);
+            }
           }
         }, 100);
-      })
-      .catch((error) => {
-        console.error("Failed to load Paystack script:", error);
-        toast.error("Failed to load payment system. Please try again.");
-        setIsLoadingScript(false);
-      });
+      } catch (error) {
+        if (isMounted) {
+          console.error("Failed to load Paystack script:", error);
+          toast.error("Failed to load payment system. Please try again.");
+          setIsLoadingScript(false);
+        }
+      }
+    };
+
+    loadScript();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handlePaystackPayment = () => {
@@ -114,7 +126,7 @@ export function PaymentMethodSelector({
         amount: amountInKobo,
         reference: reference,
         metadata: metadata,
-        callback: (response: any) => {
+        callback: (response) => {
           // Payment successful - handle async operations without blocking
           if (response.status === "success" || response.reference) {
             (async () => {

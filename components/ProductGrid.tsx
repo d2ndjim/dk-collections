@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { ProductWithDetails } from '@/lib/types/database'
-import { ProductCard } from './ProductCard'
+import { ProductWithDetails } from "@/lib/types/database";
+import { ProductCard } from "./ProductCard";
 import {
   Pagination,
   PaginationContent,
@@ -10,18 +10,24 @@ import {
   PaginationLink,
   PaginationNext,
   PaginationPrevious,
-} from '@/components/ui/pagination'
-import { Skeleton } from '@/components/ui/skeleton'
+} from "@/components/ui/pagination";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductGridProps {
-  products: ProductWithDetails[] | null
-  currentPage: number
-  totalPages: number
-  onPageChange: (page: number) => void
-  isLoading?: boolean
+  products: ProductWithDetails[] | null;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  isLoading?: boolean;
 }
 
-export function ProductGrid({ products, currentPage, totalPages, onPageChange, isLoading }: ProductGridProps) {
+export function ProductGrid({
+  products,
+  currentPage,
+  totalPages,
+  onPageChange,
+  isLoading,
+}: ProductGridProps) {
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -34,7 +40,7 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
           </div>
         ))}
       </div>
-    )
+    );
   }
 
   if (!products || products.length === 0) {
@@ -43,7 +49,7 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
         <p className="text-lg">No products found</p>
         <p className="text-sm mt-2">Check back later for new items</p>
       </div>
-    )
+    );
   }
 
   return (
@@ -62,12 +68,16 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
                 <PaginationPrevious
                   href="#"
                   onClick={(e) => {
-                    e.preventDefault()
+                    e.preventDefault();
                     if (currentPage > 1) {
-                      onPageChange(currentPage - 1)
+                      onPageChange(currentPage - 1);
                     }
                   }}
-                  className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  className={
+                    currentPage === 1
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
                 />
               </PaginationItem>
 
@@ -78,9 +88,15 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
                     <PaginationLink
                       href="#"
                       onClick={(e) => {
-                        e.preventDefault()
-                        onPageChange(1)
+                        e.preventDefault();
+                        onPageChange(1);
                       }}
+                      isActive={currentPage === 1}
+                      className={
+                        currentPage === 1
+                          ? "bg-red-500 text-white border-red-500 hover:bg-red-600 hover:text-white"
+                          : ""
+                      }
                     >
                       1
                     </PaginationLink>
@@ -95,15 +111,15 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
 
               {/* Pages around current page */}
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum
+                let pageNum;
                 if (totalPages <= 5) {
-                  pageNum = i + 1
+                  pageNum = i + 1;
                 } else if (currentPage <= 3) {
-                  pageNum = i + 1
+                  pageNum = i + 1;
                 } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i
+                  pageNum = totalPages - 4 + i;
                 } else {
-                  pageNum = currentPage - 2 + i
+                  pageNum = currentPage - 2 + i;
                 }
 
                 return (
@@ -111,15 +127,20 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
                     <PaginationLink
                       href="#"
                       onClick={(e) => {
-                        e.preventDefault()
-                        onPageChange(pageNum)
+                        e.preventDefault();
+                        onPageChange(pageNum);
                       }}
                       isActive={currentPage === pageNum}
+                      className={
+                        currentPage === pageNum
+                          ? "bg-red-500 text-white border-red-500 hover:bg-red-600 hover:text-white"
+                          : ""
+                      }
                     >
                       {pageNum}
                     </PaginationLink>
                   </PaginationItem>
-                )
+                );
               })}
 
               {/* Last page */}
@@ -134,9 +155,15 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
                     <PaginationLink
                       href="#"
                       onClick={(e) => {
-                        e.preventDefault()
-                        onPageChange(totalPages)
+                        e.preventDefault();
+                        onPageChange(totalPages);
                       }}
+                      isActive={currentPage === totalPages}
+                      className={
+                        currentPage === totalPages
+                          ? "bg-red-500 text-white border-red-500 hover:bg-red-600 hover:text-white"
+                          : ""
+                      }
                     >
                       {totalPages}
                     </PaginationLink>
@@ -148,12 +175,16 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
                 <PaginationNext
                   href="#"
                   onClick={(e) => {
-                    e.preventDefault()
+                    e.preventDefault();
                     if (currentPage < totalPages) {
-                      onPageChange(currentPage + 1)
+                      onPageChange(currentPage + 1);
                     }
                   }}
-                  className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                  className={
+                    currentPage === totalPages
+                      ? "pointer-events-none opacity-50"
+                      : "cursor-pointer"
+                  }
                 />
               </PaginationItem>
             </PaginationContent>
@@ -161,6 +192,5 @@ export function ProductGrid({ products, currentPage, totalPages, onPageChange, i
         </div>
       )}
     </div>
-  )
+  );
 }
-

@@ -1,14 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Package, 
-  ShoppingCart, 
-  TrendingUp, 
-  AlertCircle,
-  DollarSign,
-  BarChart3
-} from "lucide-react";
+import { Package, ShoppingCart, AlertCircle, DollarSign } from "lucide-react";
 
 interface DashboardStats {
   totalProducts: number;
@@ -46,9 +39,7 @@ export function DashboardOverview({ stats }: DashboardOverviewProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.totalStock}</div>
-          <p className="text-xs text-muted-foreground">
-            Items in inventory
-          </p>
+          <p className="text-xs text-muted-foreground">Items in inventory</p>
         </CardContent>
       </Card>
 
@@ -59,9 +50,7 @@ export function DashboardOverview({ stats }: DashboardOverviewProps) {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">{stats.lowStockItems}</div>
-          <p className="text-xs text-muted-foreground">
-            Items need restocking
-          </p>
+          <p className="text-xs text-muted-foreground">Items need restocking</p>
         </CardContent>
       </Card>
 
@@ -74,12 +63,9 @@ export function DashboardOverview({ stats }: DashboardOverviewProps) {
           <div className="text-2xl font-bold">
             #{stats.totalValue.toLocaleString()}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Estimated total value
-          </p>
+          <p className="text-xs text-muted-foreground">Estimated total value</p>
         </CardContent>
       </Card>
     </div>
   );
 }
-
