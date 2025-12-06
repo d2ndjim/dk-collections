@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import Image from "next/image";
 
 export interface ColorImage {
   id?: string;
@@ -188,10 +189,11 @@ export function ColorImageManager({
                     <div key={imgIndex} className="relative group">
                       <div className="aspect-square rounded-lg border overflow-hidden bg-muted">
                         {imageUrl ? (
-                          <img
+                          <Image
                             src={imageUrl}
                             alt={`${color.color} variant`}
                             className="w-full h-full object-cover"
+                            fill
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">

@@ -31,7 +31,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { DeleteProductDialog } from "@/components/admin/DeleteProductDialog";
 import { AddProductDialog } from "@/components/admin/AddProductDialog";
 import { ProductForm } from "@/components/admin/ProductForm";
@@ -39,6 +46,7 @@ import { ProductWithDetails } from "@/lib/types/database";
 import { formatCurrency, cn, slugify } from "@/lib/utils";
 import { toast } from "sonner";
 import { deleteProduct } from "@/lib/actions/products";
+import Image from "next/image";
 
 type InventorySummary = {
   totalProducts: number;
@@ -62,7 +70,11 @@ const SIDENAV_LINKS = [
   { label: "Settings", isActive: false },
 ];
 
-export function AdminDashboard({ products }: { products: ProductWithDetails[] }) {
+export function AdminDashboard({
+  products,
+}: {
+  products: ProductWithDetails[];
+}) {
   const summary = useMemo(() => buildSummary(products), [products]);
 
   return (
@@ -71,7 +83,9 @@ export function AdminDashboard({ products }: { products: ProductWithDetails[] })
         <aside className="bg-[#070b16] px-6 py-10 text-white lg:min-h-screen lg:w-64">
           <div className="mb-10 flex items-center justify-between">
             <div>
-              <p className="text-xs uppercase tracking-widest text-white/50">Mate Admin</p>
+              <p className="text-xs uppercase tracking-widest text-white/50">
+                Mate Admin
+              </p>
               <h1 className="text-xl font-semibold">Collections</h1>
             </div>
             <div className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-emerald-300">
@@ -94,11 +108,13 @@ export function AdminDashboard({ products }: { products: ProductWithDetails[] })
             ))}
           </nav>
           <div className="mt-10 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-blue-500/10 p-4 text-sm">
-            <p className="mb-2 text-xs uppercase tracking-wide text-white/60">Storage</p>
+            <p className="mb-2 text-xs uppercase tracking-wide text-white/60">
+              Storage
+            </p>
             <p className="text-lg font-semibold">Supabase</p>
             <p className="text-white/70">
-              Secure media uploads are available through the Supabase Storage bucket that powers the
-              storefront.
+              Secure media uploads are available through the Supabase Storage
+              bucket that powers the storefront.
             </p>
           </div>
         </aside>
@@ -112,7 +128,10 @@ export function AdminDashboard({ products }: { products: ProductWithDetails[] })
             <div className="flex flex-1 items-center gap-3 lg:max-w-xl">
               <div className="relative w-full">
                 <Search className="text-slate-400 absolute left-3 top-2.5 h-4 w-4" />
-                <Input className="pl-9" placeholder="Search products, SKU, colors..." />
+                <Input
+                  className="pl-9"
+                  placeholder="Search products, SKU, colors..."
+                />
               </div>
               <Button variant="outline" size="icon">
                 <Bell className="h-4 w-4" />
@@ -170,8 +189,12 @@ function DashboardSummary({ summary }: { summary: InventorySummary }) {
       {cards.map(({ title, value, change, icon: Icon, accent }) => (
         <Card key={title} className="border-none bg-white shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-500">{title}</CardTitle>
-            <div className={cn("rounded-full p-2", `bg-gradient-to-br ${accent}`)}>
+            <CardTitle className="text-sm font-medium text-slate-500">
+              {title}
+            </CardTitle>
+            <div
+              className={cn("rounded-full p-2", `bg-gradient-to-br ${accent}`)}
+            >
               <Icon className="h-4 w-4 text-slate-900" />
             </div>
           </CardHeader>
@@ -193,14 +216,22 @@ function InventoryWorkspace({
   summary: InventorySummary;
 }) {
   const router = useRouter();
-  const [typeFilter, setTypeFilter] = useState<"all" | "clothes" | "shoes" | "accessories">("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "low">("all");
+  const [typeFilter, setTypeFilter] = useState<
+    "all" | "clothes" | "shoes" | "accessories"
+  >("all");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "active" | "inactive" | "low"
+  >("all");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(products[0]?.id ?? null);
-  const [editingProduct, setEditingProduct] = useState<ProductWithDetails | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    products[0]?.id ?? null,
+  );
+  const [editingProduct, setEditingProduct] =
+    useState<ProductWithDetails | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [deletingProduct, setDeletingProduct] = useState<ProductWithDetails | null>(null);
+  const [deletingProduct, setDeletingProduct] =
+    useState<ProductWithDetails | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -213,7 +244,9 @@ function InventoryWorkspace({
         if (statusFilter === "all") return true;
         const stock = getProductStock(product);
         if (statusFilter === "low") return stock <= LOW_STOCK_THRESHOLD;
-        return statusFilter === "active" ? product.is_active : !product.is_active;
+        return statusFilter === "active"
+          ? product.is_active
+          : !product.is_active;
       })
       .filter((product) => {
         if (!search) return true;
@@ -232,7 +265,10 @@ function InventoryWorkspace({
       return;
     }
 
-    if (!selectedProductId || !filteredProducts.some((p) => p.id === selectedProductId)) {
+    if (
+      !selectedProductId ||
+      !filteredProducts.some((p) => p.id === selectedProductId)
+    ) {
       setSelectedProductId(filteredProducts[0].id);
     }
   }, [filteredProducts, selectedProductId]);
@@ -292,7 +328,9 @@ function InventoryWorkspace({
           <CardHeader className="border-b pb-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <CardTitle className="text-2xl font-semibold">Products</CardTitle>
+                <CardTitle className="text-2xl font-semibold">
+                  Products
+                </CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Track stock by colorway, status, and inventory value
                 </p>
@@ -327,7 +365,9 @@ function InventoryWorkspace({
                 <select
                   className="h-9 flex-1 rounded-md border border-input bg-transparent px-3 text-sm"
                   value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+                  onChange={(event) =>
+                    setStatusFilter(event.target.value as typeof statusFilter)
+                  }
                 >
                   <option value="all">Status: All</option>
                   <option value="active">Active</option>
@@ -352,7 +392,12 @@ function InventoryWorkspace({
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
-                      <Checkbox checked={allSelected} onCheckedChange={(checked) => toggleSelectAll(!!checked)} />
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={(checked) =>
+                          toggleSelectAll(!!checked)
+                        }
+                      />
                     </TableHead>
                     <TableHead>Product</TableHead>
                     <TableHead>Colors</TableHead>
@@ -379,27 +424,37 @@ function InventoryWorkspace({
                         <TableCell onClick={(event) => event.stopPropagation()}>
                           <Checkbox
                             checked={selectedIds.includes(product.id)}
-                            onCheckedChange={() => toggleRowSelection(product.id)}
+                            onCheckedChange={() =>
+                              toggleRowSelection(product.id)
+                            }
                           />
                         </TableCell>
                         <TableCell>
                           <div>
                             <p className="font-semibold">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">{product.slug}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {product.slug}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             {getColorways(product)
                               .slice(0, 3)
-                              .map((colorway) => (
-                                <span
-                                  key={colorway.slug}
-                                  className="h-5 w-5 rounded-full border"
-                                  title={colorway.name}
-                                  style={{ backgroundColor: colorway.color_code }}
-                                />
-                              ))}
+                              .map(
+                                (
+                                  colorway: ReturnType<typeof getColorways>[0],
+                                ) => (
+                                  <span
+                                    key={colorway.slug}
+                                    className="h-5 w-5 rounded-full border"
+                                    title={colorway.name}
+                                    style={{
+                                      backgroundColor: colorway.color_code,
+                                    }}
+                                  />
+                                ),
+                              )}
                             {colorCount > 3 && (
                               <span className="text-xs text-muted-foreground">
                                 +{colorCount - 3}
@@ -408,13 +463,19 @@ function InventoryWorkspace({
                           </div>
                         </TableCell>
                         <TableCell>
-                          <div className="text-sm font-medium">{stock.toLocaleString()}</div>
+                          <div className="text-sm font-medium">
+                            {stock.toLocaleString()}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {product.product_variants.length} variants
                           </p>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={product.is_active ? "default" : "secondary"}>
+                          <Badge
+                            variant={
+                              product.is_active ? "default" : "secondary"
+                            }
+                          >
                             {product.is_active ? "Active" : "Inactive"}
                           </Badge>
                           {stock <= LOW_STOCK_THRESHOLD && (
@@ -431,7 +492,10 @@ function InventoryWorkspace({
                             }).format(new Date(product.updated_at))}
                           </p>
                         </TableCell>
-                        <TableCell className="text-right" onClick={(event) => event.stopPropagation()}>
+                        <TableCell
+                          className="text-right"
+                          onClick={(event) => event.stopPropagation()}
+                        >
                           <div className="flex justify-end gap-2">
                             <Button
                               variant="ghost"
@@ -461,7 +525,10 @@ function InventoryWorkspace({
                   })}
                   {!filteredProducts.length && (
                     <TableRow>
-                      <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                      <TableCell
+                        colSpan={7}
+                        className="py-12 text-center text-muted-foreground"
+                      >
                         No products match your filters.
                       </TableCell>
                     </TableRow>
@@ -493,7 +560,9 @@ function InventoryWorkspace({
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <p className="text-sm text-muted-foreground">Active vs Inactive</p>
+                <p className="text-sm text-muted-foreground">
+                  Active vs Inactive
+                </p>
                 <div className="mt-2 h-2 rounded-full bg-slate-100">
                   <div
                     className="h-2 rounded-full bg-blue-500"
@@ -504,7 +573,9 @@ function InventoryWorkspace({
                 </div>
                 <div className="mt-2 flex justify-between text-xs text-muted-foreground">
                   <span>{summary.activeProducts} active</span>
-                  <span>{summary.totalProducts - summary.activeProducts} inactive</span>
+                  <span>
+                    {summary.totalProducts - summary.activeProducts} inactive
+                  </span>
                 </div>
               </div>
 
@@ -514,12 +585,19 @@ function InventoryWorkspace({
                   <p className="text-sm font-medium">Stock by Category</p>
                 </div>
                 <div className="mt-3 space-y-2 text-sm">
-                  {Object.entries(summary.typeBreakdown).map(([type, count]) => (
-                    <div key={type} className="flex items-center justify-between">
-                      <span className="capitalize text-muted-foreground">{type}</span>
-                      <span className="font-medium">{count}</span>
-                    </div>
-                  ))}
+                  {Object.entries(summary.typeBreakdown).map(
+                    ([type, count]) => (
+                      <div
+                        key={type}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="capitalize text-muted-foreground">
+                          {type}
+                        </span>
+                        <span className="font-medium">{count}</span>
+                      </div>
+                    ),
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -540,7 +618,9 @@ function InventoryWorkspace({
         <DialogContent className="max-h-[90vh] w-full max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
-            <DialogDescription>Update product information, variants, and media.</DialogDescription>
+            <DialogDescription>
+              Update product information, variants, and media.
+            </DialogDescription>
           </DialogHeader>
           {editingProduct && (
             <ProductForm
@@ -569,7 +649,10 @@ function InventoryWorkspace({
         onConfirm={handleDeleteConfirm}
       />
       {isDeleting && (
-        <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
+        <div
+          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm"
+          aria-hidden="true"
+        />
       )}
     </>
   );
@@ -582,17 +665,38 @@ function ProductInspector({
   product: ProductWithDetails | null;
   onEdit: () => void;
 }) {
-  const [activeColorSlug, setActiveColorSlug] = useState<string | null>(null);
+  const [activeColorSlug, setActiveColorSlug] = useState<string | null>(() => {
+    if (!product) return null;
+    const colorways = getColorways(product);
+    const defaultColor =
+      colorways.find(
+        (colorway: ReturnType<typeof getColorways>[0]) => colorway.is_default,
+      ) ||
+      colorways[0] ||
+      null;
+    return defaultColor?.slug || null;
+  });
 
   useEffect(() => {
     if (!product) {
-      setActiveColorSlug(null);
-      return;
+      // Use setTimeout to avoid synchronous setState in effect
+      const timer = setTimeout(() => {
+        setActiveColorSlug(null);
+      }, 0);
+      return () => clearTimeout(timer);
     }
     const colorways = getColorways(product);
     const defaultColor =
-      colorways.find((colorway) => colorway.is_default) || colorways[0] || null;
-    setActiveColorSlug(defaultColor?.slug ?? null);
+      colorways.find(
+        (colorway: ReturnType<typeof getColorways>[0]) => colorway.is_default,
+      ) ||
+      colorways[0] ||
+      null;
+    // Use setTimeout to avoid synchronous setState in effect
+    const timer = setTimeout(() => {
+      setActiveColorSlug(defaultColor?.slug ?? null);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [product]);
 
   if (!product) {
@@ -607,29 +711,50 @@ function ProductInspector({
 
   const colorways = getColorways(product);
   const activeColorway =
-    colorways.find((colorway) => colorway.slug === activeColorSlug) || colorways[0] || null;
-  const heroImage =
-    product.product_images
-      .filter((image) => image.colorway_id === activeColorway?.id)
-      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-      .find((image) => image.is_primary) ||
-    product.product_images.find((image) => !image.colorway_id) ||
+    colorways.find(
+      (colorway: ReturnType<typeof getColorways>[0]) =>
+        colorway.slug === activeColorSlug,
+    ) ||
+    colorways[0] ||
     null;
 
-  const variantsForColor = product.product_variants.filter((variant) => {
-    if (activeColorway?.id) {
-      return variant.colorway_id === activeColorway.id;
-    }
-    return !variant.colorway_id || variant.color === activeColorway?.name;
+  // Find variants matching the active colorway
+  const variantsForColorway = product.product_variants.filter((variant) => {
+    if (!activeColorway) return false;
+    const variantColor = variant.color || variant.color_code || "";
+    return (
+      variantColor === activeColorway.name ||
+      variantColor === activeColorway.color_label
+    );
   });
+
+  // Find images for variants in this colorway
+  const variantIds = new Set(variantsForColorway.map((v) => v.id));
+  const heroImage =
+    product.product_images
+      .filter((image) => image.variant_id && variantIds.has(image.variant_id))
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+      .find((image) => image.is_primary) ||
+    product.product_images
+      .filter((image) => image.variant_id && variantIds.has(image.variant_id))
+      .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))[0] ||
+    product.product_images.find((image) => image.is_primary) ||
+    product.product_images[0] ||
+    null;
+
+  const variantsForColor = variantsForColorway;
 
   return (
     <Card className="border-none shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-base font-semibold">{product.name}</CardTitle>
-            <p className="text-xs text-muted-foreground">{product.product_type}</p>
+            <CardTitle className="text-base font-semibold">
+              {product.name}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              {product.product_type}
+            </p>
           </div>
           <Button size="sm" onClick={onEdit} className="gap-2">
             <Sparkles className="h-4 w-4" /> Edit
@@ -639,10 +764,11 @@ function ProductInspector({
       <CardContent className="space-y-4">
         <div className="aspect-square w-full rounded-2xl bg-slate-100">
           {heroImage ? (
-            <img
+            <Image
               src={heroImage.image_url}
               alt={heroImage.alt_text || product.name}
               className="h-full w-full rounded-2xl object-cover"
+              fill
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center text-muted-foreground">
@@ -655,7 +781,7 @@ function ProductInspector({
         <div>
           <p className="text-sm font-medium text-muted-foreground">Colorways</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {colorways.map((colorway) => (
+            {colorways.map((colorway: ReturnType<typeof getColorways>[0]) => (
               <button
                 key={colorway.slug}
                 className={cn(
@@ -687,9 +813,15 @@ function ProductInspector({
                 key={variant.id}
                 className="flex items-center justify-between rounded-lg bg-white px-3 py-2"
               >
-                <span className="font-medium">{variant.size || variant.sku || "Variant"}</span>
+                <span className="font-medium">
+                  {variant.size || variant.sku || "Variant"}
+                </span>
                 <Badge
-                  variant={variant.stock <= LOW_STOCK_THRESHOLD ? "destructive" : "secondary"}
+                  variant={
+                    variant.stock <= LOW_STOCK_THRESHOLD
+                      ? "destructive"
+                      : "secondary"
+                  }
                 >
                   {variant.stock} in stock
                 </Badge>
@@ -710,23 +842,33 @@ function ProductInspector({
 function buildSummary(products: ProductWithDetails[]): InventorySummary {
   const totalProducts = products.length;
   const activeProducts = products.filter((product) => product.is_active).length;
-  const totalStockUnits = products.reduce((sum, product) => sum + getProductStock(product), 0);
+  const totalStockUnits = products.reduce(
+    (sum, product) => sum + getProductStock(product),
+    0,
+  );
   const lowStockProducts = products.filter(
     (product) => getProductStock(product) <= LOW_STOCK_THRESHOLD,
   ).length;
-  const featuredProducts = products.filter((product) => product.is_featured).length;
+  const featuredProducts = products.filter(
+    (product) => product.is_featured,
+  ).length;
   const inventoryValue = products.reduce(
     (sum, product) => sum + getProductStock(product) * product.price,
     0,
   );
-  const typeBreakdown = products.reduce<Record<string, number>>((acc, product) => {
-    acc[product.product_type] = (acc[product.product_type] || 0) + 1;
-    return acc;
-  }, {});
+  const typeBreakdown = products.reduce<Record<string, number>>(
+    (acc, product) => {
+      acc[product.product_type] = (acc[product.product_type] || 0) + 1;
+      return acc;
+    },
+    {},
+  );
   const lowStockVariants = products.reduce((count, product) => {
     return (
       count +
-      product.product_variants.filter((variant) => variant.stock <= LOW_STOCK_THRESHOLD).length
+      product.product_variants.filter(
+        (variant) => variant.stock <= LOW_STOCK_THRESHOLD,
+      ).length
     );
   }, 0);
 
@@ -744,14 +886,13 @@ function buildSummary(products: ProductWithDetails[]): InventorySummary {
 
 function getProductStock(product: ProductWithDetails) {
   if (!product.product_variants?.length) return 0;
-  return product.product_variants.reduce((sum, variant) => sum + (variant.stock || 0), 0);
+  return product.product_variants.reduce(
+    (sum, variant) => sum + (variant.stock || 0),
+    0,
+  );
 }
 
 function getColorways(product: ProductWithDetails) {
-  if (product.product_colorways?.length) {
-    return product.product_colorways;
-  }
-
   // Backfill colorways from variants/colors for older products.
   const uniqueColors = new Map<
     string,
@@ -801,4 +942,3 @@ function getColorways(product: ProductWithDetails) {
 
   return Array.from(uniqueColors.values());
 }
-

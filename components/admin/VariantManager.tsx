@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { X, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -50,9 +49,20 @@ export function VariantManager({ variants, onChange }: VariantManagerProps) {
     onChange(variants.filter((_, i) => i !== index));
   };
 
-  const updateVariant = (index: number, field: keyof ProductVariantInput, value: any) => {
+  const updateVariant = (
+    index: number,
+    field: keyof ProductVariantInput,
+    value: string | number | undefined,
+  ) => {
     const updated = [...variants];
-    updated[index] = { ...updated[index], [field]: value };
+    if (field === "price_override" && (value === undefined || value === 0)) {
+      // Remove price_override if it's 0 or undefined
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { price_override: _, ...rest } = updated[index];
+      updated[index] = rest as ProductVariantInput;
+    } else {
+      updated[index] = { ...updated[index], [field]: value };
+    }
     onChange(updated);
   };
 
@@ -110,7 +120,11 @@ export function VariantManager({ variants, onChange }: VariantManagerProps) {
                         type="number"
                         value={variant.stock}
                         onChange={(e) =>
-                          updateVariant(index, "stock", parseInt(e.target.value) || 0)
+                          updateVariant(
+                            index,
+                            "stock",
+                            parseInt(e.target.value) || 0,
+                          )
                         }
                         placeholder="0"
                         className="h-8"
@@ -133,13 +147,12 @@ export function VariantManager({ variants, onChange }: VariantManagerProps) {
                         type="number"
                         step="0.01"
                         value={variant.price_override || ""}
-                        onChange={(e) =>
-                          updateVariant(
-                            index,
-                            "price_override",
-                            e.target.value ? parseFloat(e.target.value) : undefined
-                          )
-                        }
+                        onChange={(e) => {
+                          const value = e.target.value
+                            ? parseFloat(e.target.value)
+                            : undefined;
+                          updateVariant(index, "price_override", value);
+                        }}
                         placeholder="Optional"
                         className="h-8"
                       />
@@ -265,4 +278,3 @@ export function VariantManager({ variants, onChange }: VariantManagerProps) {
     </div>
   );
 }
-

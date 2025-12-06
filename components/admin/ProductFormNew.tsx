@@ -78,7 +78,8 @@ export function ProductFormNew({
   const isEditing = !!product;
 
   const form = useForm<ProductFormValues>({
-    resolver: zodResolver(productSchema) as any,
+    // @ts-expect-error - Known react-hook-form type mismatch with zod
+    resolver: zodResolver(productSchema),
     defaultValues: {
       name: product?.name || "",
       slug: product?.slug || "",
@@ -114,21 +115,56 @@ export function ProductFormNew({
           stock: v.stock || 0,
           sku: v.sku || "",
           price_override: v.price_override || undefined,
-        }))
+        })),
       );
     }
 
     // Load existing images if editing
+    // Note: ProductImage doesn't have color/color_code, we need to get it from variants
     if (product?.product_images) {
-      setColorImages(
-        product.product_images.map((img) => ({
-          id: img.id,
-          color: img.color || "",
-          color_code: img.color_code || "#000000",
-          image_url: img.image_url,
-          is_primary: img.is_primary,
-        }))
-      );
+      const imageMap = new Map<string, ColorImage[]>();
+
+      // Group images by variant_id and get color from variant
+      product.product_images.forEach((img) => {
+        if (img.variant_id) {
+          const variant = product.product_variants?.find(
+            (v) => v.id === img.variant_id,
+          );
+          const color = variant?.color || "";
+          const color_code = variant?.color_code || "#000000";
+
+          if (!imageMap.has(color)) {
+            imageMap.set(color, []);
+          }
+          imageMap.get(color)!.push({
+            id: img.id,
+            color,
+            color_code,
+            image_url: img.image_url,
+            is_primary: img.is_primary,
+          });
+        } else {
+          // Images without variant_id - use default
+          if (!imageMap.has("Default")) {
+            imageMap.set("Default", []);
+          }
+          imageMap.get("Default")!.push({
+            id: img.id,
+            color: "Default",
+            color_code: "#000000",
+            image_url: img.image_url,
+            is_primary: img.is_primary,
+          });
+        }
+      });
+
+      // Flatten the map to array
+      const allImages: ColorImage[] = [];
+      imageMap.forEach((images) => {
+        allImages.push(...images);
+      });
+
+      setColorImages(allImages);
     }
   }, [product]);
 
@@ -172,7 +208,7 @@ export function ProductFormNew({
       let productId: string;
 
       if (isEditing && product) {
-        const { data, error } = await updateProduct(product.id, formData);
+        const { error } = await updateProduct(product.id, formData);
         if (error) {
           toast.error("Failed to update product", {
             description: error.message || "Please try again",
@@ -186,12 +222,12 @@ export function ProductFormNew({
         // Delete old variants and images to recreate them
         if (product.product_variants) {
           await Promise.all(
-            product.product_variants.map((v) => deleteProductVariant(v.id))
+            product.product_variants.map((v) => deleteProductVariant(v.id)),
           );
         }
         if (product.product_images) {
           await Promise.all(
-            product.product_images.map((img) => deleteProductImage(img.id))
+            product.product_images.map((img) => deleteProductImage(img.id)),
           );
         }
       } else {
@@ -225,7 +261,7 @@ export function ProductFormNew({
           sku: variant.sku,
           price_override: variant.price_override,
           is_available: true,
-        })
+        }),
       );
 
       const variantResults = await Promise.all(variantPromises);
@@ -244,7 +280,7 @@ export function ProductFormNew({
         if (img.file) {
           const { url, error: uploadError } = await uploadProductImageClient(
             img.file,
-            `${values.slug}-${img.color}-${i}`
+            `${values.slug}-${img.color}-${i}`,
           );
 
           if (uploadError || !url) {
@@ -255,14 +291,16 @@ export function ProductFormNew({
         }
 
         if (imageUrl) {
+          // Find variant ID for this color to link the image
+          const variantForColor = variants.find((v) => v.color === img.color);
+
           const { error: imageError } = await createProductImage({
             product_id: productId,
+            variant_id: variantForColor?.id || null,
             image_url: imageUrl,
             alt_text: `${values.name} - ${img.color}`,
             is_primary: img.is_primary || false,
             display_order: i,
-            color: img.color,
-            color_code: img.color_code,
           });
 
           if (!imageError) {
@@ -276,7 +314,7 @@ export function ProductFormNew({
       }
 
       await onSuccess();
-    } catch (error) {
+    } catch {
       toast.error("An error occurred", {
         description: "Something went wrong. Please try again.",
       });
@@ -285,8 +323,13 @@ export function ProductFormNew({
     }
   };
 
+  // Type assertion helper for form.control to fix react-hook-form type compatibility
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const formControl = form.control as any;
+
   return (
     <Form {...form}>
+      {/* @ts-expect-error - react-hook-form type compatibility issue */}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
@@ -298,7 +341,7 @@ export function ProductFormNew({
           <TabsContent value="basic" className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <FormField
-                control={form.control}
+                control={formControl}
                 name="name"
                 render={({ field }) => (
                   <FormItem>
@@ -321,13 +364,16 @@ export function ProductFormNew({
               />
 
               <FormField
-                control={form.control}
+                control={formControl}
                 name="slug"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Slug</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="e.g., classic-white-tshirt" />
+                      <Input
+                        {...field}
+                        placeholder="e.g., classic-white-tshirt"
+                      />
                     </FormControl>
                     <FormDescription>
                       URL-friendly identifier (auto-generated from name)
@@ -339,7 +385,7 @@ export function ProductFormNew({
             </div>
 
             <FormField
-              control={form.control}
+              control={formControl}
               name="description"
               render={({ field }) => (
                 <FormItem>
@@ -358,7 +404,7 @@ export function ProductFormNew({
 
             <div className="grid gap-4 md:grid-cols-2">
               <FormField
-                control={form.control}
+                control={formControl}
                 name="product_type"
                 render={({ field }) => (
                   <FormItem>
@@ -381,7 +427,7 @@ export function ProductFormNew({
               />
 
               <FormField
-                control={form.control}
+                control={formControl}
                 name="category_id"
                 render={({ field }) => (
                   <FormItem>
@@ -414,7 +460,7 @@ export function ProductFormNew({
 
             <div className="grid gap-4 md:grid-cols-2">
               <FormField
-                control={form.control}
+                control={formControl}
                 name="price"
                 render={({ field }) => (
                   <FormItem>
@@ -435,7 +481,7 @@ export function ProductFormNew({
               />
 
               <FormField
-                control={form.control}
+                control={formControl}
                 name="compare_at_price"
                 render={({ field }) => (
                   <FormItem>
@@ -448,7 +494,7 @@ export function ProductFormNew({
                         value={field.value || ""}
                         onChange={(e) =>
                           field.onChange(
-                            e.target.value ? parseFloat(e.target.value) : null
+                            e.target.value ? parseFloat(e.target.value) : null,
                           )
                         }
                       />
@@ -464,7 +510,7 @@ export function ProductFormNew({
 
             <div className="grid gap-4 md:grid-cols-2">
               <FormField
-                control={form.control}
+                control={formControl}
                 name="brand"
                 render={({ field }) => (
                   <FormItem>
@@ -482,7 +528,7 @@ export function ProductFormNew({
               />
 
               <FormField
-                control={form.control}
+                control={formControl}
                 name="material"
                 render={({ field }) => (
                   <FormItem>
@@ -502,7 +548,7 @@ export function ProductFormNew({
 
             <div className="flex gap-4">
               <FormField
-                control={form.control}
+                control={formControl}
                 name="is_featured"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-start space-x-3 space-y-0">
@@ -523,7 +569,7 @@ export function ProductFormNew({
               />
 
               <FormField
-                control={form.control}
+                control={formControl}
                 name="is_active"
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-start space-x-3 space-y-0">
@@ -576,4 +622,3 @@ export function ProductFormNew({
     </Form>
   );
 }
-

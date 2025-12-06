@@ -24,7 +24,7 @@ export async function uploadProductImage(
     const buffer = Buffer.from(base64Data, 'base64')
 
     // Upload to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('product-images')
       .upload(filePath, buffer, {
         contentType: fileData.type,
