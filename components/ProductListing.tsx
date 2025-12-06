@@ -60,26 +60,15 @@ export function ProductListing() {
 
   return (
     <>
-      <Header category={category} />
+      <Header category={category} variant="full" />
       <div className="container mx-auto px-4 py-8">
-        <Tabs value={category} onValueChange={(value) => handleCategoryChange(value as Category)} className="w-full">
-          <div className="flex justify-center mb-8">
-            <TabsList className="bg-gray-100">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="shoes">Shoes</TabsTrigger>
-              <TabsTrigger value="clothes">Clothes</TabsTrigger>
-              <TabsTrigger value="accessories">Accessories</TabsTrigger>
-            </TabsList>
-          </div>
-
-          <ProductGrid
-            products={products}
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-            isLoading={isPending}
-          />
-        </Tabs>
+        <ProductGrid
+          products={products}
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          isLoading={isPending}
+        />
       </div>
     </>
   )

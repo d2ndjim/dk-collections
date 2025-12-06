@@ -6,6 +6,8 @@ import Link from "next/link";
 import { ProductWithDetails } from "@/lib/types/database";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { useCart } from "@/contexts/CartContext";
+import { toast } from "sonner";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -24,8 +26,8 @@ export function ProductDetails({ product }: ProductDetailsProps) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const { addToCart, items } = useCart();
 
-  // Get unique colors from variants
   const colors = useMemo(() => {
     const colorMap = new Map<
       string,
@@ -47,7 +49,6 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     return Array.from(colorMap.values());
   }, [product.product_variants]);
 
-  // Get sizes for selected color (or all sizes if no color selected)
   const availableSizes = useMemo(() => {
     let sizes: string[] = [];
 
@@ -65,10 +66,8 @@ export function ProductDetails({ product }: ProductDetailsProps) {
         .filter((size): size is string => size !== null);
     }
 
-    // Remove duplicates using Set, then sort
     const uniqueSizes = Array.from(new Set(sizes));
     return uniqueSizes.sort((a, b) => {
-      // Sort sizes numerically if possible
       const numA = parseInt(a);
       const numB = parseInt(b);
       if (!isNaN(numA) && !isNaN(numB)) {
@@ -78,28 +77,23 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     });
   }, [product.product_variants, selectedColor]);
 
-  // Get images for selected color
   const displayImages = useMemo(() => {
     if (selectedColor) {
-      // Find all variant IDs for selected color
       const colorVariantIds = product.product_variants
         .filter((v) => v.color === selectedColor && v.is_available)
         .map((v) => v.id);
 
       if (colorVariantIds.length > 0) {
-        // Get images for any of these variants
         const variantImages = product.product_images.filter(
           (img) => img.variant_id && colorVariantIds.includes(img.variant_id),
         );
         if (variantImages.length > 0) {
-          // Sort by display_order
           return variantImages.sort(
             (a, b) => a.display_order - b.display_order,
           );
         }
       }
 
-      // If no variant-specific images, try to find images with matching color in alt_text or use product-level images
       const productLevelImages = product.product_images.filter(
         (img) => !img.variant_id,
       );
@@ -110,7 +104,6 @@ export function ProductDetails({ product }: ProductDetailsProps) {
       }
     }
 
-    // Fallback to primary image or all images
     const primaryImage = product.product_images.find((img) => img.is_primary);
     if (primaryImage) {
       return [primaryImage];
@@ -126,19 +119,16 @@ export function ProductDetails({ product }: ProductDetailsProps) {
     primaryImage?.image_url ||
     "https://via.placeholder.com/600x600?text=No+Image";
 
-  // Check availability
   const isAvailable = product.product_variants.some(
     (v) => v.is_available && v.stock > 0,
   );
 
-  // Auto-select first color if available
   useEffect(() => {
     if (colors.length > 0 && !selectedColor) {
       setSelectedColor(colors[0].color);
     }
   }, [colors, selectedColor]);
 
-  // Auto-select first size if available
   useEffect(() => {
     if (availableSizes.length > 0 && !selectedSize) {
       setSelectedSize(availableSizes[0]);
@@ -150,22 +140,59 @@ export function ProductDetails({ product }: ProductDetailsProps) {
   };
 
   const handleAddToCart = () => {
-    // TODO: Implement add to cart functionality
-    console.log("Add to cart:", {
+    if (!selectedSize) {
+      toast.error("Please select a size");
+      return;
+    }
+
+    const variant = product.product_variants.find(
+      (v) =>
+        v.color === selectedColor &&
+        v.size === selectedSize &&
+        v.is_available &&
+        v.stock > 0,
+    );
+
+    if (!variant) {
+      toast.error("Selected variant is not available");
+      return;
+    }
+
+    const cartItemId = `${product.id}-${variant.id || "no-variant"}-${selectedColor || "no-color"}-${selectedSize || "no-size"}`;
+    const existingItem = items.find((item) => item.id === cartItemId);
+
+    if (existingItem) {
+      toast.info("This item is already in your cart");
+      return;
+    }
+
+    const variantImage = product.product_images.find(
+      (img) => img.variant_id === variant.id,
+    );
+    const productImage =
+      variantImage ||
+      product.product_images.find((img) => img.is_primary) ||
+      product.product_images[0];
+
+    addToCart({
       productId: product.id,
+      variantId: variant.id,
+      name: product.name,
+      price: variant.price_override || product.price,
+      imageUrl: productImage?.image_url || "",
       color: selectedColor,
       size: selectedSize,
       quantity,
     });
+
+    toast.success(`${product.name} added to cart!`);
   };
 
-  // Helper function to convert color name to hex code
   const getColorHex = (colorName: string, colorCode: string | null): string => {
     if (colorCode) {
       return colorCode.startsWith("#") ? colorCode : `#${colorCode}`;
     }
 
-    // Fallback color mapping
     const colorMap: Record<string, string> = {
       black: "#000000",
       white: "#FFFFFF",
