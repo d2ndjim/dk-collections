@@ -210,9 +210,11 @@ export function CartContent() {
             Continue Shopping
           </Button>
         </Link>
-        <Button className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto px-8 py-6 text-base font-semibold">
-          Proceed to Checkout
-        </Button>
+        <Link href="/checkout" className="w-full sm:w-auto">
+          <Button className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto px-8 py-6 text-base font-semibold">
+            Proceed to Checkout
+          </Button>
+        </Link>
       </div>
     </div>
   );

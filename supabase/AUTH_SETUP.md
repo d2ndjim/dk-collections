@@ -1,6 +1,6 @@
 # Supabase Authentication Setup Guide
 
-This guide will help you set up authentication for the admin side of your application using Supabase Auth with email/password and Google OAuth.
+This guide will help you set up authentication for the admin side of this application using Supabase Auth with email/password and Google OAuth.
 
 ## Prerequisites
 
