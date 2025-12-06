@@ -28,11 +28,6 @@ async function ProductManagement() {
     revalidatePath("/admin");
   }
 
-  async function handleRefresh() {
-    "use server";
-    revalidatePath("/admin");
-  }
-
   async function handleDeleteAll() {
     "use server";
     const { error, deletedCount } = await deleteAllProducts();
@@ -71,7 +66,6 @@ async function ProductManagement() {
         shoesProducts={shoesProducts.data || []}
         accessoriesProducts={accessoriesProducts.data || []}
         onDelete={handleDelete}
-        onUpdate={handleRefresh}
       />
     </div>
   );

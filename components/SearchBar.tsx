@@ -12,8 +12,6 @@ export function SearchBar() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      // TODO: Implement search functionality
-      // For now, just navigate to search results page
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
@@ -33,4 +31,3 @@ export function SearchBar() {
     </form>
   );
 }
-

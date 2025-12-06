@@ -57,7 +57,8 @@ export function VariantManager({ variants, onChange }: VariantManagerProps) {
     const updated = [...variants];
     if (field === "price_override" && (value === undefined || value === 0)) {
       // Remove price_override if it's 0 or undefined
-      const { price_override, ...rest } = updated[index];
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { price_override: _, ...rest } = updated[index];
       updated[index] = rest as ProductVariantInput;
     } else {
       updated[index] = { ...updated[index], [field]: value };

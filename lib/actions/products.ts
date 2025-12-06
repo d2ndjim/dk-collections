@@ -75,6 +75,44 @@ export async function getProductsPaginated(
   return { data, error: null, totalCount: count || 0, totalPages };
 }
 
+export async function searchProducts(
+  searchQuery: string,
+  page: number = 1,
+  pageSize: number = 8,
+) {
+  const supabase = await createClient();
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const query = supabase
+    .from("products")
+    .select(
+      `
+      *,
+      categories(*),
+      product_variants(*),
+      product_images(*)
+    `,
+      { count: "exact" },
+    )
+    .eq("is_active", true)
+    .ilike("name", `%${searchQuery}%`)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  const { data, error, count } = await query;
+
+  if (error) {
+    console.error("Error searching products:", error);
+    return { data: null, error, totalCount: 0, totalPages: 0 };
+  }
+
+  const totalPages = count ? Math.ceil(count / pageSize) : 0;
+
+  return { data, error: null, totalCount: count || 0, totalPages };
+}
+
 export async function getProductById(id: string) {
   const supabase = await createClient();
 
@@ -529,7 +567,7 @@ export async function syncProductVariants(
     created: Array<{ id: string; image_url: string }>;
     updated: Array<{ id: string; image_url: string }>;
     deleted: string[];
-    errors: Array<{ operation: string; error: any }>;
+    errors: Array<{ operation: string; error: unknown }>;
   } = {
     created: [],
     updated: [],

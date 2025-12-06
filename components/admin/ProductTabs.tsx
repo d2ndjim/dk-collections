@@ -10,7 +10,6 @@ interface ProductTabsProps {
   shoesProducts: ProductWithDetails[];
   accessoriesProducts: ProductWithDetails[];
   onDelete: (id: string) => Promise<void>;
-  onUpdate: () => Promise<void>;
 }
 
 export function ProductTabs({
@@ -19,7 +18,6 @@ export function ProductTabs({
   shoesProducts,
   accessoriesProducts,
   onDelete,
-  onUpdate,
 }: ProductTabsProps) {
   return (
     <Tabs defaultValue="all" className="space-y-4">
